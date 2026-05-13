@@ -1,0 +1,26 @@
+{
+  "schema_version": 2,
+  "active_plan": "/Users/lavyatandel/Documents/Oh-my-agent/oh-my-unified/.sisyphus/plans/unified-plugin.md",
+  "plan_name": "unified-plugin",
+  "started_at": "2026-05-13T01:10:00.000Z",
+  "updated_at": "2026-05-13T02:50:00.000Z",
+  "status": "active",
+  "session_ids": ["ses_1e247f7b6ffeie6a5TImwFV5TE"],
+  "session_origins": {
+    "ses_1e247f7b6ffeie6a5TImwFV5TE": "direct"
+  },
+  "works": {
+    "unified-plugin": {
+      "work_id": "unified-plugin",
+      "active_plan": "/Users/lavyatandel/Documents/Oh-my-agent/oh-my-unified/.sisyphus/plans/unified-plugin.md",
+      "plan_name": "unified-plugin",
+      "status": "active",
+      "started_at": "2026-05-13T01:10:00.000Z",
+      "updated_at": "2026-05-13T02:50:00.000Z",
+      "session_ids": ["ses_1e247f7b6ffeie6a5TImwFV5TE"],
+      "session_origins": {
+        "ses_1e247f7b6ffeie6a5TImwFV5TE": "direct"
+      }
+    }
+  }
+}

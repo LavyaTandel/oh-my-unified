@@ -1,0 +1,64 @@
+{
+  "name": "oh-my-unified",
+  "version": "1.0.0",
+  "description": "Unified OpenCode plugin combining oh-my-openagent + oh-my-opencode-slim with PersistentTaskEngine, MCP Bus, and Assessment→Assembly→Action workflow",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./tui": {
+      "import": "./dist/tui.js",
+      "types": "./dist/tui.d.ts"
+    }
+  },
+  "bin": {
+    "oh-my-unified": "./dist/cli/index.js"
+  },
+  "type": "module",
+  "license": "MIT",
+  "keywords": [
+    "opencode",
+    "opencode-plugin",
+    "unified",
+    "persistent-task-engine",
+    "mcp-bus",
+    "ai",
+    "agents",
+    "orchestration"
+  ],
+  "files": [
+    "dist",
+    "src/skills",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build:plugin": "bun build src/index.ts src/tui.ts --outdir dist --target node --format esm --external @ast-grep/napi --external @opencode-ai/plugin --external @opencode-ai/sdk --external jsdom --external zod",
+    "build:cli": "bun build src/cli/index.ts --outdir dist/cli --target node --format esm --external @ast-grep/napi --external @opencode-ai/plugin --external @opencode-ai/sdk --external jsdom --external zod",
+    "build": "bun run build:plugin && bun run build:cli",
+    "prepare": "bun run build",
+    "typecheck": "tsc --noEmit --skipLibCheck",
+    "test": "bun test",
+    "lint": "echo 'linting skipped'",
+    "format": "echo 'formatting skipped'"
+  },
+  "dependencies": {
+    "@ast-grep/napi": "^0.41.1",
+    "@opencode-ai/plugin": "^1.4.0",
+    "@opencode-ai/sdk": "^1.4.0",
+    "@opentui/core": "^0.2.7",
+    "@opentui/solid": "^0.2.7",
+    "commander": "^14.0.3",
+    "jsdom": "^25.0.1",
+    "strip-json-comments": "^5.0.1",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.1",
+    "bun-types": "^1.3.13",
+    "typescript": "^5.7.3"
+  }
+}
