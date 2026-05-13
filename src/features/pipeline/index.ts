@@ -23,6 +23,55 @@ export interface SubSession {
   promptInstructions: string  // The instructions given to this sub-agent
 }
 
+/**
+ * Structured delegation task for sub-agents.
+ * Mirrors the oh-my-openagent Sisyphus delegation pattern:
+ *   What to do, Must do, Must NOT do, QA checks.
+ */
+export interface DelegatedTask {
+  agentName: string
+  objective: string
+  mustDo: string[]
+  mustNotDo: string[]
+  dependsOn: string[]
+  qa: string[]
+  reportFormat: string
+}
+
+/**
+ * Generate a structured task prompt in the openagent format.
+ * Produces a clear sectioned prompt that the sub-agent can follow precisely.
+ */
+export function generateTaskPrompt(task: DelegatedTask): string {
+  const lines: string[] = []
+  lines.push(`## Task for @${task.agentName}`)
+  lines.push('')
+  lines.push(`### Objective`)
+  lines.push(task.objective)
+  lines.push('')
+  lines.push('### What to do')
+  task.mustDo.forEach(d => lines.push(`- ${d}`))
+  lines.push('')
+  lines.push('### What NOT to do')
+  task.mustNotDo.forEach(d => lines.push(`- ${d}`))
+  lines.push('')
+  lines.push('### Dependencies')
+  if (task.dependsOn.length === 0) {
+    lines.push('- None (can start immediately)')
+  } else {
+    task.dependsOn.forEach(d => lines.push(`- Wait for: ${d}`))
+  }
+  lines.push('')
+  lines.push('### Quality Assurance')
+  task.qa.forEach(q => lines.push(`- [ ] ${q}`))
+  lines.push('')
+  lines.push('### Report Format')
+  lines.push(task.reportFormat)
+  lines.push('')
+  lines.push('After completing: VERIFY against What to do and What NOT to do.')
+  return lines.join('\n')
+}
+
 export class PipelineOrchestrator {
   private conductor: string = 'odin'  // Who's in the main session
   private subSessions: Map<string, SubSession> = new Map()
@@ -71,29 +120,30 @@ export class PipelineOrchestrator {
    * Even primary agents (other than the conductor) get sub-sessions.
    * Only the conductor stays in the main session.
    */
-  async callAgent(agentName: string, instructions: string): Promise<SubSession> {
-    const agent = getAgent(agentName)
-    if (!agent) throw new Error(`Unknown agent: ${agentName}`)
+  async callAgent(task: DelegatedTask): Promise<SubSession> {
+    const agent = getAgent(task.agentName)
+    if (!agent) throw new Error(`Unknown agent: ${task.agentName}`)
 
-    // Role check — sub-session agents perform read-only research work
-    const permission = this.roleEnforcer.checkPermission(agentName, 'read')
-    if (permission.blocked && !agent.canDelegate) {
-      throw new Error(permission.violation)
-    }
+    // Check role permissions for research actions
+    const permission = this.roleEnforcer.checkPermission(task.agentName, 'research')
+    if (permission.blocked) throw new Error(permission.violation)
 
-    // Create visible sub-session
+    // Generate structured prompt
+    const prompt = generateTaskPrompt(task)
+
+    // Create sub-session with full objective
     const session: SubSession = {
-      agentName,
+      agentName: task.agentName,
       displayName: agent.displayName,
-      sessionId: `sub-${agentName}-${Date.now()}`,
-      taskDescription: instructions.slice(0, 100),
+      sessionId: `sub-${task.agentName}-${Date.now()}`,
+      taskDescription: task.objective.slice(0, 100),
       status: 'launched',
       visible: true,
-      promptInstructions: instructions,
+      promptInstructions: prompt,
     }
 
     this.subSessions.set(session.sessionId, session)
-    this.kanban.addTask(this.workflow.getPhase() as KanbanTask['phase'], agentName, agent.displayName, instructions)
+    this.kanban.addTask(this.workflow.getPhase() as KanbanTask['phase'], task.agentName, agent.displayName, task.objective)
 
     return session
   }
@@ -172,8 +222,50 @@ export class PipelineOrchestrator {
     this.kanban.addTask('assess', this.conductor, `@${this.conductor.charAt(0).toUpperCase() + this.conductor.slice(1)}`, `Interview: ${userRequest.slice(0, 50)}...`)
 
     // Deploy sub-sessions for supporting agents (frigg + mimir research in background)
-    await this.callAgent('frigg', `Gap analysis on requirements: ${userRequest}`)
-    await this.callAgent('mimir', `Architecture advice for: ${userRequest}`)
+    await this.callAgent({
+      agentName: 'frigg',
+      objective: `Gap analysis on requirements: ${userRequest}`,
+      mustDo: [
+        'Analyze the user request for implicit requirements',
+        'Identify gaps, contradictions, and missing context',
+        'List assumptions that need validation',
+        'Categorize gaps by severity (blocking / important / nice-to-have)',
+      ],
+      mustNotDo: [
+        'Do not propose solutions or architecture',
+        'Do not write code or pseudocode',
+        'Do not make unsupported assumptions',
+      ],
+      dependsOn: [],
+      qa: [
+        'Are all gaps clearly labeled by severity?',
+        'Are assumptions explicitly called out?',
+        'Is the analysis actionable for planning?',
+      ],
+      reportFormat: 'Bullet-list gap analysis with severity labels. Conclude with top-3 most critical gaps.',
+    })
+    await this.callAgent({
+      agentName: 'mimir',
+      objective: `Architecture advice for: ${userRequest}`,
+      mustDo: [
+        'Review the request from an architectural standpoint',
+        'Identify relevant patterns, technologies, and approaches',
+        'Flag potential architectural risks or concerns',
+        'Suggest architectural considerations for the plan',
+      ],
+      mustNotDo: [
+        'Do not produce a full implementation plan',
+        'Do not write code or configuration',
+        'Do not make technology recommendations without reasoning',
+      ],
+      dependsOn: [],
+      qa: [
+        'Are architectural risks clearly identified?',
+        'Is each recommendation backed by reasoning?',
+        'Are trade-offs discussed?',
+      ],
+      reportFormat: 'Structured analysis with sections: Risks, Considerations, Recommendations. Conclude with a go/no-go assessment.',
+    })
   }
 
   /**
@@ -207,8 +299,28 @@ export class PipelineOrchestrator {
           continue
         }
 
-        // Deploy to visible sub-session
-        await this.callAgent(agentName, item.action)
+        // Deploy to visible sub-session with structured task
+        await this.callAgent({
+          agentName,
+          objective: item.action,
+          mustDo: [
+            'Execute the assigned action completely',
+            'Report findings in the specified format',
+            'Flag any blockers or dependencies encountered',
+          ],
+          mustNotDo: [
+            'Do not modify any files outside the scope of this task',
+            'Do not deviate from the assigned objective',
+            'Do not delegate to other agents unless explicitly permitted',
+          ],
+          dependsOn: [],
+          qa: [
+            'Was the objective fully addressed?',
+            'Are all findings documented?',
+            'Are blockers clearly communicated?',
+          ],
+          reportFormat: 'Concise summary of findings. If action produced output, include relevant excerpts.',
+        })
       }
     }
   }

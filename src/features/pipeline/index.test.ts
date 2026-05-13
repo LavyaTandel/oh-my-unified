@@ -1,5 +1,22 @@
 import { describe, it, expect, beforeEach } from 'bun:test'
-import { PipelineOrchestrator } from './index'
+import { PipelineOrchestrator, type DelegatedTask } from './index'
+
+/**
+ * Test helper: create a minimal DelegatedTask so test code stays concise.
+ * Override fields by passing a partial.
+ */
+function makeTask(agentName: string, objective: string, overrides?: Partial<DelegatedTask>): DelegatedTask {
+  return {
+    agentName,
+    objective,
+    mustDo: overrides?.mustDo ?? ['Execute the assigned task'],
+    mustNotDo: overrides?.mustNotDo ?? ['Do not deviate from the objective'],
+    dependsOn: overrides?.dependsOn ?? [],
+    qa: overrides?.qa ?? ['Was the objective met?'],
+    reportFormat: overrides?.reportFormat ?? 'Summary of findings.',
+    ...overrides,
+  }
+}
 
 describe('PipelineOrchestrator', () => {
   let pipeline: PipelineOrchestrator
@@ -71,7 +88,8 @@ describe('PipelineOrchestrator', () => {
   // ── 10-13. callAgent ──────────────────────────────────────────────────
 
   it('10. callAgent creates a SubSession with correct fields', async () => {
-    const session = await pipeline.callAgent('sif', 'Search for API route patterns')
+    const task = makeTask('sif', 'Search for API route patterns')
+    const session = await pipeline.callAgent(task)
 
     expect(session.agentName).toBe('sif')
     expect(session.displayName).toBe('@Sif')
@@ -79,12 +97,19 @@ describe('PipelineOrchestrator', () => {
     expect(session.taskDescription).toBe('Search for API route patterns')
     expect(session.status).toBe('launched')
     expect(session.visible).toBe(true)
-    expect(session.promptInstructions).toBe('Search for API route patterns')
+    expect(session.promptInstructions).toContain('## Task for @sif')
+    expect(session.promptInstructions).toContain('### Objective')
+    expect(session.promptInstructions).toContain('Search for API route patterns')
+    expect(session.promptInstructions).toContain('### What to do')
+    expect(session.promptInstructions).toContain('### What NOT to do')
+    expect(session.promptInstructions).toContain('### Quality Assurance')
+    expect(session.promptInstructions).toContain('### Report Format')
+    expect(session.promptInstructions).toContain('After completing: VERIFY against What to do and What NOT to do.')
     expect(pipeline.getSubSessions().has(session.sessionId)).toBe(true)
   })
 
   it('11. callAgent also creates a kanban task for the agent', async () => {
-    await pipeline.callAgent('eir', 'Find documentation for auth flow')
+    await pipeline.callAgent(makeTask('eir', 'Find documentation for auth flow'))
 
     const report = pipeline.getKanban().getReport()
     const tasks = report.tasks
@@ -94,12 +119,12 @@ describe('PipelineOrchestrator', () => {
   })
 
   it('12. callAgent throws for an unknown agent', async () => {
-    await expect(pipeline.callAgent('nonexistent', 'do something')).rejects.toThrow('Unknown agent')
+    await expect(pipeline.callAgent(makeTask('nonexistent', 'do something'))).rejects.toThrow('Unknown agent')
   })
 
   it('13. callAgent works for primary agents (they go to sub-sessions too)', async () => {
     // Only the conductor stays in main session — other primaries get sub-sessions
-    const session = await pipeline.callAgent('vidar', 'Map the codebase architecture')
+    const session = await pipeline.callAgent(makeTask('vidar', 'Map the codebase architecture'))
 
     expect(session.agentName).toBe('vidar')
     expect(session.status).toBe('launched')
@@ -116,8 +141,8 @@ describe('PipelineOrchestrator', () => {
   })
 
   it('15. waitForAllSubSessions returns true when all sub-sessions complete', async () => {
-    const session1 = await pipeline.callAgent('sif', 'Search patterns')
-    const session2 = await pipeline.callAgent('eir', 'Find docs')
+    const session1 = await pipeline.callAgent(makeTask('sif', 'Search patterns'))
+    const session2 = await pipeline.callAgent(makeTask('eir', 'Find docs'))
 
     // Complete both sub-sessions
     pipeline.completeSubSession(session1.sessionId, 'Found patterns in src/')
@@ -129,7 +154,7 @@ describe('PipelineOrchestrator', () => {
   })
 
   it('16. waitForAllSubSessions returns false on timeout', async () => {
-    await pipeline.callAgent('sif', 'Long running search')
+    await pipeline.callAgent(makeTask('sif', 'Long running search'))
 
     // Don't complete — should timeout
     const result = await pipeline.waitForAllSubSessions(500)
@@ -140,7 +165,7 @@ describe('PipelineOrchestrator', () => {
   // ── 18-19. completeSubSession ────────────────────────────────────────
 
   it('17. completeSubSession marks session as completed with result', async () => {
-    const session = await pipeline.callAgent('sif', 'Search patterns')
+    const session = await pipeline.callAgent(makeTask('sif', 'Search patterns'))
 
     const result = pipeline.completeSubSession(session.sessionId, 'Found matching patterns')
 
@@ -157,8 +182,8 @@ describe('PipelineOrchestrator', () => {
   // ── 20-21. isWaiting / getVisibleSubSessions / clearCompleted ────────
 
   it('19. getVisibleSubSessions returns only sub-sessions (all are visible)', async () => {
-    await pipeline.callAgent('sif', 'Search')
-    await pipeline.callAgent('eir', 'Find docs')
+    await pipeline.callAgent(makeTask('sif', 'Search'))
+    await pipeline.callAgent(makeTask('eir', 'Find docs'))
 
     const visible = pipeline.getVisibleSubSessions()
     expect(visible.length).toBe(2)
@@ -167,8 +192,8 @@ describe('PipelineOrchestrator', () => {
   })
 
   it('20. clearCompletedSubSessions removes completed and failed sessions', async () => {
-    const session1 = await pipeline.callAgent('sif', 'Search')
-    const session2 = await pipeline.callAgent('eir', 'Find docs')
+    const session1 = await pipeline.callAgent(makeTask('sif', 'Search'))
+    const session2 = await pipeline.callAgent(makeTask('eir', 'Find docs'))
 
     pipeline.completeSubSession(session1.sessionId, 'Done')
 
@@ -277,8 +302,8 @@ describe('PipelineOrchestrator', () => {
   // ── 26. collectSubSessionResults ─────────────────────────────────────
 
   it('26. collectSubSessionResults returns summaries of all sub-sessions', async () => {
-    await pipeline.callAgent('sif', 'Search for patterns')
-    await pipeline.callAgent('eir', 'Find documentation')
+    await pipeline.callAgent(makeTask('sif', 'Search for patterns'))
+    await pipeline.callAgent(makeTask('eir', 'Find documentation'))
 
     const results = pipeline.collectSubSessionResults()
 

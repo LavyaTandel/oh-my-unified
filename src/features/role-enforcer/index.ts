@@ -19,8 +19,8 @@ export class RoleEnforcer {
       case 'Orchestrator': // Njord — can delegate and read
         if (action === 'edit') return { agentName, violation: 'Orchestrators cannot edit files directly', blocked: true }
         return { agentName, violation: '', blocked: false }
-      case 'Advisor':      // Mimir — read-only
-        if (action !== 'read') return { agentName, violation: 'Advisors are read-only', blocked: true }
+      case 'Advisor':      // Mimir — read-only (but can research)
+        if (action !== 'read' && action !== 'research') return { agentName, violation: 'Advisors are read-only', blocked: true }
         return { agentName, violation: '', blocked: false }
       case 'Mapper':       // Vidar — read + research
         if (action === 'edit') return { agentName, violation: 'Mappers cannot edit', blocked: true }
@@ -30,8 +30,8 @@ export class RoleEnforcer {
       case 'Runner':       // Hermod — execute only
         if (action === 'delegate') return { agentName, violation: 'Runners cannot delegate', blocked: true }
         return { agentName, violation: '', blocked: false }
-      case 'Scout': case 'Scholar': case 'Watcher': // Read-only researchers
-        if (action !== 'read') return { agentName, violation: `${agent.role}s are read-only`, blocked: true }
+      case 'Scout': case 'Scholar': case 'Watcher': // Read-only but can research
+        if (action !== 'read' && action !== 'research') return { agentName, violation: `${agent.role}s are read-only`, blocked: true }
         return { agentName, violation: '', blocked: false }
       default:
         return { agentName, violation: '', blocked: false }
