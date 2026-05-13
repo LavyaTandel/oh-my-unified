@@ -146,8 +146,8 @@ export function createModelFallbackHook(
   }
 
   return {
-    'tool.before': handleToolBefore,
-    'tool.after': handleToolAfter,
+    'oh-my-unified.tool.before': handleToolBefore,
+    'oh-my-unified.tool.after': handleToolAfter,
     getFallbackLogs,
   };
 }

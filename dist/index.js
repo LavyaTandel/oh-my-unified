@@ -309,7 +309,7 @@ function loadConfigFromPath(configPath, options) {
         message
       });
       if (!options?.silent) {
-        console.warn(`[oh-my-agents] Invalid JSON in ${configPath}:`, message);
+        console.warn(`[oh-my-unified] Invalid JSON in ${configPath}:`, message);
       }
       return null;
     }
@@ -322,7 +322,7 @@ function loadConfigFromPath(configPath, options) {
         formatted: result.error.format()
       });
       if (!options?.silent) {
-        console.warn(`[oh-my-agents] Invalid config at ${configPath}:`);
+        console.warn(`[oh-my-unified] Invalid config at ${configPath}:`);
         console.warn(result.error.format());
       }
       return null;
@@ -336,7 +336,7 @@ function loadConfigFromPath(configPath, options) {
         message: error.message
       });
       if (!options?.silent) {
-        console.warn(`[oh-my-agents] Error reading config:`, error.message);
+        console.warn(`[oh-my-unified] Error reading config:`, error.message);
       }
     }
     return null;
@@ -379,8 +379,8 @@ function findConfigPathInDirs(configDirs, baseName) {
 }
 function findPluginConfigPaths(directory) {
   const configDir = process.env.OPENCODE_CONFIG_DIR || process.env.XDG_CONFIG_HOME || path.join(process.env.HOME || "", ".config", "opencode");
-  const userConfigPath = findConfigPathInDirs([configDir, process.cwd()], "oh-my-agents");
-  const projectConfigPath = findConfigPath(path.join(directory, ".opencode", "oh-my-agents"));
+  const userConfigPath = findConfigPathInDirs([configDir, process.cwd()], "oh-my-unified");
+  const projectConfigPath = findConfigPath(path.join(directory, ".opencode", "oh-my-unified"));
   return { userConfigPath, projectConfigPath };
 }
 function deepMerge(base, override) {
@@ -440,7 +440,7 @@ function loadPluginConfig(directory, options) {
         message
       });
       if (!options?.silent) {
-        console.warn(`[oh-my-agents] ${message}`);
+        console.warn(`[oh-my-unified] ${message}`);
       }
     }
   }
@@ -1442,7 +1442,7 @@ function createOmAuditHook(ctx, config) {
 // src/utils/logger.ts
 var logger = null;
 function initLogger(sessionId) {
-  const prefix = `[oh-my-agents:${sessionId}]`;
+  const prefix = `[oh-my-unified:${sessionId}]`;
   logger = {
     info: (msg, meta) => {
       console.log(`${prefix} INFO: ${msg}`, meta || "");
@@ -1454,7 +1454,7 @@ function initLogger(sessionId) {
       console.error(`${prefix} ERROR: ${msg}`, meta || "");
     },
     debug: (msg, meta) => {
-      if (process.env.DEBUG?.includes("oh-my-agents")) {
+      if (process.env.DEBUG?.includes("oh-my-unified")) {
         console.debug(`${prefix} DEBUG: ${msg}`, meta || "");
       }
     }
@@ -1488,7 +1488,7 @@ function createContextWindowMonitor(config) {
     return null;
   }
   return {
-    "tool.execute.after": async (input, output) => {
+    "oh-my-unified.tool.execute.after": async (input, output) => {
       if (!cfg.enabled)
         return;
       if (remindedSessions.has(input.sessionID))
@@ -1505,7 +1505,7 @@ function createContextWindowMonitor(config) {
         fraction: frac
       });
     },
-    event: async ({ event }) => {
+    "oh-my-unified.event": async ({ event }) => {
       if (event.type === "session.deleted") {
         const props = event.properties;
         const sid = typeof props?.sessionID === "string" ? props.sessionID : undefined;
@@ -1526,7 +1526,7 @@ function createFileWriteGuard(config) {
     return FILE_READ_PATTERNS.some((p) => p.test(command));
   }
   return {
-    "tool.execute.before": async (input, output) => {
+    "oh-my-unified.tool.execute.before": async (input, output) => {
       if (!cfg.enabled)
         return;
       if (input.tool.toLowerCase() !== "bash")
@@ -1571,7 +1571,7 @@ function createOverwriteProtection(ctx, config) {
     return rel === "" || !rel.startsWith("..") && !isAbsolute(rel);
   }
   return {
-    "tool.execute.after": async (input, output) => {
+    "oh-my-unified.tool.execute.after": async (input, output) => {
       if (!cfg.enabled)
         return;
       const tool = input.tool.toLowerCase();
@@ -1591,7 +1591,7 @@ function createOverwriteProtection(ctx, config) {
         paths.add(absPath);
       }
     },
-    "tool.execute.before": async (input, output) => {
+    "oh-my-unified.tool.execute.before": async (input, output) => {
       if (!cfg.enabled)
         return;
       if (!["write", "edit"].includes(input.tool.toLowerCase()))
@@ -1624,7 +1624,7 @@ function createTaskReminder(config) {
   const TASK_TOOLS = new Set(["task", "task_create", "task_list", "task_get", "task_update", "task_delete", "todowrite"]);
   const sessionCounters = new Map;
   return {
-    "tool.execute.after": async (input, output) => {
+    "oh-my-unified.tool.execute.after": async (input, output) => {
       if (!cfg.enabled)
         return;
       const lower = input.tool.toLowerCase();
@@ -1643,7 +1643,7 @@ function createTaskReminder(config) {
         sessionCounters.set(input.sessionID, next);
       }
     },
-    event: async ({ event }) => {
+    "oh-my-unified.event": async ({ event }) => {
       if (event.type === "session.deleted") {
         const props = event.properties;
         const sid = typeof props?.sessionID === "string" ? props.sessionID : undefined;
@@ -1660,7 +1660,7 @@ function createModelSelectionHook(config) {
     ...config
   };
   return {
-    "chat.message": async (input, output) => {
+    "oh-my-unified.chat.message": async (input, output) => {
       if (!cfg.enabled)
         return;
       const agentName = input.agent ?? "";
@@ -1730,7 +1730,7 @@ function createErrorRecoveryHook(config) {
     }
   ];
   return {
-    "tool.execute.after": async (input, output) => {
+    "oh-my-unified.tool.execute.after": async (input, output) => {
       if (!cfg.enabled)
         return;
       if (!cfg.detailedSuggestions)
@@ -1770,7 +1770,7 @@ function createWebFetchGuard(config) {
     return /exceeded maximum redirects/i.test(output) || /redirect loop/i.test(output);
   }
   return {
-    "tool.execute.before": async (input, output) => {
+    "oh-my-unified.tool.execute.before": async (input, output) => {
       if (!cfg.enabled)
         return;
       if (input.tool.toLowerCase() !== "webfetch")
@@ -1782,7 +1782,7 @@ function createWebFetchGuard(config) {
       const key = makeKey(input.sessionID, input.callID);
       pendingFailures.set(key, { originalUrl: url, storedAt: Date.now() });
     },
-    "tool.execute.after": async (input, output) => {
+    "oh-my-unified.tool.execute.after": async (input, output) => {
       if (!cfg.enabled)
         return;
       if (input.tool.toLowerCase() !== "webfetch")
@@ -1836,7 +1836,7 @@ function createDiffEnhancer(config) {
   ~${added} added, ${removed} removed`;
   }
   return {
-    "tool.execute.before": async (input, output) => {
+    "oh-my-unified.tool.execute.before": async (input, output) => {
       if (!cfg.enabled)
         return;
       if (input.tool.toLowerCase() !== "write")
@@ -1852,7 +1852,7 @@ function createDiffEnhancer(config) {
         storedAt: Date.now()
       });
     },
-    "tool.execute.after": async (input, output) => {
+    "oh-my-unified.tool.execute.after": async (input, output) => {
       if (!cfg.enabled)
         return;
       if (input.tool.toLowerCase() !== "write")
@@ -1881,7 +1881,7 @@ ${diff}`;
 function createEmptyResponseDetector(config) {
   const cfg = { enabled: true, ...config };
   return {
-    "tool.execute.after": async (input, output) => {
+    "oh-my-unified.tool.execute.after": async (input, output) => {
       if (!cfg.enabled)
         return;
       if (!["task", "call_omo_agent"].includes(input.tool))
@@ -1895,14 +1895,14 @@ function createEmptyResponseDetector(config) {
 }
 function createCommentChecker(_config) {
   return {
-    "tool.execute.before": async () => {},
-    "tool.execute.after": async () => {}
+    "oh-my-unified.tool.execute.before": async () => {},
+    "oh-my-unified.tool.execute.after": async () => {}
   };
 }
 function createFsyncWarning(_config) {
   return {
-    "tool.execute.before": async () => {},
-    "tool.execute.after": async () => {}
+    "oh-my-unified.tool.execute.before": async () => {},
+    "oh-my-unified.tool.execute.after": async () => {}
   };
 }
 function createSynthesizedHooks(ctx, _config, hookConfig) {
@@ -2059,16 +2059,16 @@ function createDisplayNameMentionRewriter(config) {
 }
 // src/utils/persist.ts
 import { join as join3 } from "node:path";
-var PERSIST_DIR = join3(process.cwd(), ".opencode", "oh-my-agents");
+var PERSIST_DIR = join3(process.cwd(), ".opencode", "oh-my-unified");
 // src/index.ts
 async function appLog(ctx, level, message) {
   try {
     await ctx.client.app.log({
-      body: { service: "oh-my-agents-synthesis", level, message }
+      body: { service: "oh-my-unified", level, message }
     });
   } catch {
     const prefix = level === "error" ? "ERROR" : level === "warn" ? "WARN" : "INFO";
-    console.error(`[oh-my-agents] ${prefix}: ${message}`);
+    console.error(`[oh-my-unified] ${prefix}: ${message}`);
   }
 }
 var HEALTH_CHECK = {
@@ -2085,7 +2085,7 @@ async function probeJSDOM() {
     return String(err);
   }
 }
-var OhMyAgentsSynthesis = async (ctx) => {
+var OhMyUnified = async (ctx) => {
   const sessionId = new Date().toISOString().replace(/[-:]/g, "").slice(0, 15);
   initLogger(sessionId);
   let config;
@@ -2201,7 +2201,7 @@ var OhMyAgentsSynthesis = async (ctx) => {
     }
   });
   return {
-    name: "oh-my-agents-synthesis",
+    name: "oh-my-unified",
     ...synthesizedHooks,
     agent: agents,
     tool: {
@@ -2220,7 +2220,7 @@ var OhMyAgentsSynthesis = async (ctx) => {
     }
   };
 };
-var src_default = OhMyAgentsSynthesis;
+var src_default = OhMyUnified;
 export {
   src_default as default
 };

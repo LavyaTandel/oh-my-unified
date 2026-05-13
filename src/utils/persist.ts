@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-const PERSIST_DIR = join(process.cwd(), '.opencode', 'oh-my-agents');
+const PERSIST_DIR = join(process.cwd(), '.opencode', 'oh-my-unified');
 
 export function getPersistedData<T>(key: string, defaultValue: T): T {
   try {
@@ -23,6 +23,6 @@ export function setPersistedData<T>(key: string, value: T): void {
     }
     writeFileSync(filePath, JSON.stringify(value, null, 2));
   } catch (err) {
-    console.error(`[oh-my-agents] Failed to persist ${key}:`, err);
+    console.error(`[oh-my-unified] Failed to persist ${key}:`, err);
   }
 }

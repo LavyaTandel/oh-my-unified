@@ -23,7 +23,7 @@ function addMessage(role, content, agent) {
 }
 var TuiPlugin = async () => {
   return {
-    name: "oh-my-agents-tui",
+    name: "oh-my-unified-tui",
     tool: {}
   };
 };

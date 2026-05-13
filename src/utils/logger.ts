@@ -8,7 +8,7 @@ let logger: {
 } | null = null;
 
 export function initLogger(sessionId: string) {
-  const prefix = `[oh-my-agents:${sessionId}]`;
+  const prefix = `[oh-my-unified:${sessionId}]`;
   logger = {
     info: (msg: string, meta?: Record<string, unknown>) => {
       console.log(`${prefix} INFO: ${msg}`, meta || '');
@@ -20,7 +20,7 @@ export function initLogger(sessionId: string) {
       console.error(`${prefix} ERROR: ${msg}`, meta || '');
     },
     debug: (msg: string, meta?: Record<string, unknown>) => {
-      if (process.env.DEBUG?.includes('oh-my-agents')) {
+      if (process.env.DEBUG?.includes('oh-my-unified')) {
         console.debug(`${prefix} DEBUG: ${msg}`, meta || '');
       }
     },

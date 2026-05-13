@@ -39,7 +39,7 @@ export function addMessage(role: string, content: string, agent?: string): void 
 // Plugin function for TUI module
 export const TuiPlugin: Plugin = async () => {
   return {
-    name: 'oh-my-agents-tui',
+    name: 'oh-my-unified-tui',
     tool: {},
   };
 };

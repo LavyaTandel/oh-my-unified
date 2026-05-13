@@ -44,7 +44,7 @@ function loadConfigFromPath(
         message,
       });
       if (!options?.silent) {
-        console.warn(`[oh-my-agents] Invalid JSON in ${configPath}:`, message);
+        console.warn(`[oh-my-unified] Invalid JSON in ${configPath}:`, message);
       }
       return null;
     }
@@ -58,7 +58,7 @@ function loadConfigFromPath(
         formatted: result.error.format(),
       });
       if (!options?.silent) {
-        console.warn(`[oh-my-agents] Invalid config at ${configPath}:`);
+        console.warn(`[oh-my-unified] Invalid config at ${configPath}:`);
         console.warn(result.error.format());
       }
       return null;
@@ -76,7 +76,7 @@ function loadConfigFromPath(
         message: error.message,
       });
       if (!options?.silent) {
-        console.warn(`[oh-my-agents] Error reading config:`, error.message);
+        console.warn(`[oh-my-unified] Error reading config:`, error.message);
       }
     }
     return null;
@@ -152,11 +152,11 @@ export function findPluginConfigPaths(directory: string): {
 
   const userConfigPath = findConfigPathInDirs(
     [configDir, process.cwd()],
-    'oh-my-agents',
+    'oh-my-unified',
   );
 
   const projectConfigPath = findConfigPath(
-    path.join(directory, '.opencode', 'oh-my-agents'),
+    path.join(directory, '.opencode', 'oh-my-unified'),
   );
 
   return { userConfigPath, projectConfigPath };
@@ -280,7 +280,7 @@ export function loadPluginConfig(
         message,
       });
       if (!options?.silent) {
-        console.warn(`[oh-my-agents] ${message}`);
+        console.warn(`[oh-my-unified] ${message}`);
       }
     }
   }

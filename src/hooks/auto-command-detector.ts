@@ -230,6 +230,6 @@ export function createAutoCommandDetectorHook(
 
   return {
     detect,
-    'message.before': handleMessageBefore,
+    'oh-my-unified.message.before': handleMessageBefore,
   };
 }

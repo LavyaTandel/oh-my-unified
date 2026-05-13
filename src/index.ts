@@ -32,11 +32,11 @@ async function appLog(
 ): Promise<void> {
   try {
     await ctx.client.app.log({
-      body: { service: 'oh-my-agents-synthesis', level, message },
+      body: { service: 'oh-my-unified', level, message },
     });
   } catch {
     const prefix = level === 'error' ? 'ERROR' : level === 'warn' ? 'WARN' : 'INFO';
-    console.error(`[oh-my-agents] ${prefix}: ${message}`);
+    console.error(`[oh-my-unified] ${prefix}: ${message}`);
   }
 }
 
@@ -56,7 +56,7 @@ async function probeJSDOM(): Promise<string | null> {
   }
 }
 
-const OhMyAgentsSynthesis: Plugin = async (ctx) => {
+const OhMyUnified: Plugin = async (ctx) => {
   const sessionId = new Date().toISOString().replace(/[-:]/g, '').slice(0, 15);
   initLogger(sessionId);
 
@@ -216,7 +216,7 @@ const OhMyAgentsSynthesis: Plugin = async (ctx) => {
   });
 
 return {
-    name: 'oh-my-agents-synthesis',
+    name: 'oh-my-unified',
 
     // Spread synthesized hooks so their lifecycle handlers are registered
     ...synthesizedHooks,
@@ -248,4 +248,4 @@ return {
   };
 };
 
-export default OhMyAgentsSynthesis;
+export default OhMyUnified;

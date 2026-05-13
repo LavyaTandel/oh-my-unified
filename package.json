@@ -15,7 +15,7 @@
     }
   },
   "bin": {
-    "oh-my-unified": "./dist/cli/index.js"
+    "oh-my-unified": "dist/cli/index.js"
   },
   "type": "module",
   "license": "MIT",

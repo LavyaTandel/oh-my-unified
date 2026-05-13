@@ -122,6 +122,6 @@ export function createDirectoryContextInjectorHook(
   return {
     gatherContext,
     invalidateCache,
-    'message.before': handleMessageBefore,
+    'oh-my-unified.message.before': handleMessageBefore,
   };
 }

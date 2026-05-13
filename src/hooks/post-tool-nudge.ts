@@ -74,6 +74,6 @@ export function createPostToolNudgeHook(
   }
 
   return {
-    'tool.after': handleToolAfter,
+    'oh-my-unified.tool.after': handleToolAfter,
   };
 }

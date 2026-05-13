@@ -151,7 +151,7 @@ export function createCompactionContextInjectorHook(
     updateContext,
     buildSnapshot,
     getContext: () => ({ ...currentContext }),
-    'compaction.before': handleCompactionBefore,
-    'compaction.after': handleCompactionAfter,
+    'oh-my-unified.compaction.before': handleCompactionBefore,
+    'oh-my-unified.compaction.after': handleCompactionAfter,
   };
 }

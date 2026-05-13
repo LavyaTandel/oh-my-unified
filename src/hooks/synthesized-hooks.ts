@@ -147,7 +147,7 @@ export function createContextWindowMonitor(config?: ContextWindowMonitorConfig) 
   }
 
   return {
-    'tool.execute.after': async (
+    'oh-my-unified.tool.execute.after': async (
       input: { tool: string; sessionID: string },
       output: { output?: string },
     ): Promise<void> => {
@@ -167,7 +167,7 @@ export function createContextWindowMonitor(config?: ContextWindowMonitorConfig) 
       });
     },
 
-    event: async ({ event }: { event: { type: string; properties?: unknown } }) => {
+    'oh-my-unified.event': async ({ event }: { event: { type: string; properties?: unknown } }) => {
       if (event.type === 'session.deleted') {
         const props = event.properties as Record<string, unknown> | undefined;
         const sid = typeof props?.sessionID === 'string' ? props.sessionID : undefined;
@@ -197,7 +197,7 @@ export function createFileWriteGuard(config?: FileWriteGuardConfig) {
   }
 
   return {
-    'tool.execute.before': async (
+    'oh-my-unified.tool.execute.before': async (
       input: { tool: string; sessionID: string },
       output: { args?: Record<string, unknown>; message?: string },
     ): Promise<void> => {
@@ -254,7 +254,7 @@ export function createOverwriteProtection(
   }
 
   return {
-    'tool.execute.after': async (
+    'oh-my-unified.tool.execute.after': async (
       input: { tool: string; sessionID: string },
       output: { args?: Record<string, unknown> },
     ): Promise<void> => {
@@ -277,7 +277,7 @@ export function createOverwriteProtection(
       }
     },
 
-    'tool.execute.before': async (
+    'oh-my-unified.tool.execute.before': async (
       input: { tool: string; sessionID: string },
       output: { args?: Record<string, unknown>; message?: string },
     ): Promise<void> => {
@@ -321,7 +321,7 @@ export function createTaskReminder(config?: TaskReminderConfig) {
   const sessionCounters = new Map<string, number>();
 
   return {
-    'tool.execute.after': async (
+    'oh-my-unified.tool.execute.after': async (
       input: { tool: string; sessionID: string },
       output: { output?: string },
     ): Promise<void> => {
@@ -345,7 +345,7 @@ export function createTaskReminder(config?: TaskReminderConfig) {
       }
     },
 
-    event: async ({ event }: { event: { type: string; properties?: unknown } }) => {
+    'oh-my-unified.event': async ({ event }: { event: { type: string; properties?: unknown } }) => {
       if (event.type === 'session.deleted') {
         const props = event.properties as Record<string, unknown> | undefined;
         const sid = typeof props?.sessionID === 'string' ? props.sessionID : undefined;
@@ -370,7 +370,7 @@ export function createModelSelectionHook(config?: ModelSelectionConfig) {
   };
 
   return {
-    'chat.message': async (
+    'oh-my-unified.chat.message': async (
       input: { sessionID: string; agent?: string; model?: { providerID: string; modelID: string } },
       output?: { message?: { agent?: string; [key: string]: unknown } },
     ): Promise<void> => {
@@ -461,7 +461,7 @@ export function createErrorRecoveryHook(config?: ErrorRecoveryConfig) {
   ];
 
   return {
-    'tool.execute.after': async (
+    'oh-my-unified.tool.execute.after': async (
       input: { tool: string },
       output: { output?: string },
     ): Promise<void> => {
@@ -513,7 +513,7 @@ export function createWebFetchGuard(config?: WebFetchGuardConfig) {
   }
 
   return {
-    'tool.execute.before': async (
+    'oh-my-unified.tool.execute.before': async (
       input: { tool: string; sessionID: string; callID: string },
       output: { args?: Record<string, unknown>; message?: string },
     ): Promise<void> => {
@@ -528,7 +528,7 @@ export function createWebFetchGuard(config?: WebFetchGuardConfig) {
       pendingFailures.set(key, { originalUrl: url, storedAt: Date.now() });
     },
 
-    'tool.execute.after': async (
+    'oh-my-unified.tool.execute.after': async (
       input: { tool: string; sessionID: string; callID: string },
       output: { output?: string },
     ): Promise<void> => {
@@ -594,7 +594,7 @@ export function createDiffEnhancer(config?: DiffEnhancerConfig) {
   }
 
   return {
-    'tool.execute.before': async (
+    'oh-my-unified.tool.execute.before': async (
       input: { tool: string; sessionID: string; callID: string },
       output: { args?: Record<string, unknown> },
     ): Promise<void> => {
@@ -613,7 +613,7 @@ export function createDiffEnhancer(config?: DiffEnhancerConfig) {
       });
     },
 
-    'tool.execute.after': async (
+    'oh-my-unified.tool.execute.after': async (
       input: { tool: string; sessionID: string; callID: string },
       output: { output?: string },
     ): Promise<void> => {
@@ -651,7 +651,7 @@ export function createEmptyResponseDetector(config?: EmptyResponseDetectorConfig
   const cfg: Required<EmptyResponseDetectorConfig> = { enabled: true, ...config };
 
   return {
-    'tool.execute.after': async (
+    'oh-my-unified.tool.execute.after': async (
       input: { tool: string },
       output: { output?: string },
     ): Promise<void> => {
@@ -680,10 +680,10 @@ export function createCommentChecker(_config?: CommentCheckerConfig) {
   // This synthesized hook provides the event hooks; the actual analysis
   // pipeline would be configured via the plugin config.
   return {
-    'tool.execute.before': async (): Promise<void> => {
+    'oh-my-unified.tool.execute.before': async (): Promise<void> => {
       // Hook point for pre-write/edit comment validation
     },
-    'tool.execute.after': async (): Promise<void> => {
+    'oh-my-unified.tool.execute.after': async (): Promise<void> => {
       // Hook point for post-write/edit comment freshness check
     },
   };
@@ -700,10 +700,10 @@ export function createFsyncWarning(_config?: FsyncWarningConfig) {
   // This synthesized hook provides the before/after scaffolding that
   // connects to that tracker when available.
   return {
-    'tool.execute.before': async (): Promise<void> => {
+    'oh-my-unified.tool.execute.before': async (): Promise<void> => {
       // Capture start time to correlate fsync skips
     },
-    'tool.execute.after': async (): Promise<void> => {
+    'oh-my-unified.tool.execute.after': async (): Promise<void> => {
       // Check for fsync skips since start time and warn if any found
     },
   };

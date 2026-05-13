@@ -13,12 +13,12 @@ export interface BackgroundNotificationConfig {
 }
 
 const DEFAULT_EVENTS = [
-  'session.idle',
-  'message.updated',
-  'todo.updated',
-  'session.error',
-  'task.completed',
-  'background.stopped',
+  'oh-my-unified.session.idle',
+  'oh-my-unified.message.updated',
+  'oh-my-unified.todo.updated',
+  'oh-my-unified.session.error',
+  'oh-my-unified.task.completed',
+  'oh-my-unified.background.stopped',
 ] as const;
 
 type BackgroundEvent = (typeof DEFAULT_EVENTS)[number] | string;
@@ -53,8 +53,8 @@ export function createBackgroundNotificationHook(
     _input: Record<string, unknown>,
     _output: Record<string, unknown>,
   ): Promise<void> {
-    if (!cfg.enabled || !watchedEvents.has('session.idle')) return;
-    log('[background-notification] session.idle — no active background tasks');
+    if (!cfg.enabled || !watchedEvents.has('oh-my-unified.session.idle')) return;
+    log('[background-notification] oh-my-unified.session.idle — no active background tasks');
   }
 
   /**
@@ -64,8 +64,8 @@ export function createBackgroundNotificationHook(
     _input: Record<string, unknown>,
     _output: Record<string, unknown>,
   ): Promise<void> {
-    if (!cfg.enabled || !watchedEvents.has('message.updated')) return;
-    log('[background-notification] message.updated — background agent produced output');
+    if (!cfg.enabled || !watchedEvents.has('oh-my-unified.message.updated')) return;
+    log('[background-notification] oh-my-unified.message.updated — background agent produced output');
   }
 
   /**
@@ -75,8 +75,8 @@ export function createBackgroundNotificationHook(
     _input: Record<string, unknown>,
     _output: Record<string, unknown>,
   ): Promise<void> {
-    if (!cfg.enabled || !watchedEvents.has('todo.updated')) return;
-    log('[background-notification] todo.updated — background task updated todos');
+    if (!cfg.enabled || !watchedEvents.has('oh-my-unified.todo.updated')) return;
+    log('[background-notification] oh-my-unified.todo.updated — background task updated todos');
   }
 
   /**
@@ -86,8 +86,8 @@ export function createBackgroundNotificationHook(
     _input: Record<string, unknown>,
     _output: Record<string, unknown>,
   ): Promise<void> {
-    if (!cfg.enabled || !watchedEvents.has('session.error')) return;
-    log('[background-notification] session.error — background session encountered error');
+    if (!cfg.enabled || !watchedEvents.has('oh-my-unified.session.error')) return;
+    log('[background-notification] oh-my-unified.session.error — background session encountered error');
   }
 
   /**
@@ -97,8 +97,8 @@ export function createBackgroundNotificationHook(
     _input: Record<string, unknown>,
     _output: Record<string, unknown>,
   ): Promise<void> {
-    if (!cfg.enabled || !watchedEvents.has('task.completed')) return;
-    log('[background-notification] task.completed — background task finished');
+    if (!cfg.enabled || !watchedEvents.has('oh-my-unified.task.completed')) return;
+    log('[background-notification] oh-my-unified.task.completed — background task finished');
   }
 
   /**
@@ -108,16 +108,16 @@ export function createBackgroundNotificationHook(
     _input: Record<string, unknown>,
     _output: Record<string, unknown>,
   ): Promise<void> {
-    if (!cfg.enabled || !watchedEvents.has('background.stopped')) return;
-    log('[background-notification] background.stopped — background engine halted');
+    if (!cfg.enabled || !watchedEvents.has('oh-my-unified.background.stopped')) return;
+    log('[background-notification] oh-my-unified.background.stopped — background engine halted');
   }
 
   return {
-    'session.idle': handleSessionIdle,
-    'message.updated': handleMessageUpdated,
-    'todo.updated': handleTodoUpdated,
-    'session.error': handleSessionError,
-    'task.completed': handleTaskCompleted,
-    'background.stopped': handleBackgroundStopped,
+    'oh-my-unified.session.idle': handleSessionIdle,
+    'oh-my-unified.message.updated': handleMessageUpdated,
+    'oh-my-unified.todo.updated': handleTodoUpdated,
+    'oh-my-unified.session.error': handleSessionError,
+    'oh-my-unified.task.completed': handleTaskCompleted,
+    'oh-my-unified.background.stopped': handleBackgroundStopped,
   };
 }

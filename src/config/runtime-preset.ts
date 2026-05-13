@@ -42,4 +42,4 @@ export function loadPersistedPreset(): string | null {
   }
 }
 
-const PERSIST_DIR = join(process.cwd(), '.opencode', 'oh-my-agents');
+const PERSIST_DIR = join(process.cwd(), '.opencode', 'oh-my-unified');

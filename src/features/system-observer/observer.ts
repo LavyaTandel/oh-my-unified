@@ -1,3 +1,7 @@
+import fs from 'node:fs'
+import path from 'node:path'
+import os from 'node:os'
+
 import type {
   ComponentHealth,
   SystemReport,
@@ -222,6 +226,31 @@ export class SystemObserver {
       }
     }
 
+    // ── Plugin conflict detection ───────────────────────────────────
+    const conflicts = this.detectPluginConflicts()
+    if (conflicts.length > 0) {
+      this.health.set('plugin-conflicts', {
+        name: 'plugin-conflicts',
+        status: 'degraded',
+        lastCheck: Date.now(),
+        details: { conflicts },
+      })
+      // Also push to warnings
+      for (const c of conflicts) {
+        this.warnings.push({
+          component: 'plugin-conflicts',
+          message: `Plugin conflict: ${c}`,
+          time: Date.now(),
+        })
+      }
+    } else {
+      this.health.set('plugin-conflicts', {
+        name: 'plugin-conflicts',
+        status: 'healthy',
+        lastCheck: Date.now(),
+      })
+    }
+
     // ── Aggregate overall status ─────────────────────────────────────
     let overall: SystemReport['overall'] = 'healthy'
     for (const h of results) {
@@ -233,6 +262,10 @@ export class SystemObserver {
         overall = 'degraded'
         // keep iterating — a 'down' would upgrade to 'critical'
       }
+    }
+    // Also check conflict status
+    if (conflicts.length > 0 && overall !== 'critical') {
+      overall = 'degraded'
     }
 
     // Trim stale warnings / errors (keep last 50 each)
@@ -366,6 +399,61 @@ export class SystemObserver {
   /** Set the connected MCP count (called by external connector). */
   setConnectedMcps(count: number): void {
     this.connectedMcps = count
+  }
+
+  // ── Conflict detection ──────────────────────────────────────────────
+
+  /**
+   * Detect conflicting plugins loaded in the same OpenCode session.
+   * Checks for known plugin namespaces that conflict with oh-my-unified.
+   */
+  detectPluginConflicts(): string[] {
+    const conflicts: string[] = []
+
+    // 1. Check npm_config_global env var for conflicting packages
+    try {
+      const npmGlobal = process.env.npm_config_global ?? ''
+      if (npmGlobal.includes('oh-my-openagent')) {
+        conflicts.push('oh-my-openagent (global npm)')
+      }
+    } catch {
+      // ignore
+    }
+
+    // 2. Check .config/opencode/package.json for conflicting dependencies
+    try {
+      const configDir = path.join(os.homedir(), '.config', 'opencode')
+      const pkgJsonPath = path.join(configDir, 'package.json')
+
+      if (fs.existsSync(pkgJsonPath)) {
+        const pkg = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf-8'))
+        if (pkg.dependencies?.['oh-my-openagent']) {
+          conflicts.push(`oh-my-openagent@${pkg.dependencies['oh-my-openagent']} in OpenCode config package.json`)
+        }
+        if (pkg.dependencies?.['oh-my-opencode-slim']) {
+          conflicts.push(`oh-my-opencode-slim@${pkg.dependencies['oh-my-opencode-slim']} in OpenCode config package.json`)
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    // 3. Check .config/opencode/plugins/ directory for conflicting plugin files
+    try {
+      const pluginsDir = path.join(os.homedir(), '.config', 'opencode', 'plugins')
+      if (fs.existsSync(pluginsDir)) {
+        const plugins = fs.readdirSync(pluginsDir)
+        for (const plugin of plugins) {
+          if ((plugin.includes('oh-my-openagent') || plugin.includes('oh-my-opencode-slim')) && !plugin.includes('unified')) {
+            conflicts.push(`${plugin} in plugins directory`)
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    return conflicts
   }
 
   // ── Diagnostics ──────────────────────────────────────────────────────
