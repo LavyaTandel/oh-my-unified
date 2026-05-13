@@ -14,7 +14,7 @@ export const AGENT_REQUIREMENTS: Record<string, AgentModelRequirements> = {
   tyr:     { agentName: 'tyr',     reasoning: 8,  speed: 4, creativity: 4, context: 'medium' },
   // Sub-agents
   sif:     { agentName: 'sif',     reasoning: 4,  speed: 9, creativity: 3, context: 'medium' },
-  eir:     { agentName: 'eir',     reasoning: 5,  speed: 7, creativity: 4, context: 'medium' },
+  eir:     { agentName: 'eir',     reasoning: 7,  speed: 4, creativity: 7, context: 'large' },
   freyr:   { agentName: 'freyr',   reasoning: 5,  speed: 6, creativity: 9, context: 'medium' },
   hermod:  { agentName: 'hermod',  reasoning: 5,  speed: 9, creativity: 3, context: 'medium' },
   heimdall:{ agentName: 'heimdall',reasoning: 4,  speed: 6, creativity: 5, context: 'medium' },
