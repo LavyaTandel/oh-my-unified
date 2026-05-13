@@ -1,6 +1,6 @@
 import type { AgentDefinition } from './orchestrator';
 
-const ORACLE_PROMPT = `You are Oracle - a strategic technical advisor and code reviewer.
+const MIMIR_PROMPT = `You are Mimir - a strategic technical advisor and code reviewer.
 
 **Role**: High-IQ debugging, architecture decisions, code review, simplification, and engineering guidance.
 
@@ -24,21 +24,21 @@ const ORACLE_PROMPT = `You are Oracle - a strategic technical advisor and code r
 - Point to specific files/lines when relevant
 `;
 
-export function createOracleAgent(
+export function createMimirAgent(
   model: string,
   customPrompt?: string,
   customAppendPrompt?: string,
 ): AgentDefinition {
-  let prompt = ORACLE_PROMPT;
+  let prompt = MIMIR_PROMPT;
 
   if (customPrompt) {
     prompt = customPrompt;
   } else if (customAppendPrompt) {
-    prompt = `${ORACLE_PROMPT}\n\n${customAppendPrompt}`;
+    prompt = `${MIMIR_PROMPT}\n\n${customAppendPrompt}`;
   }
 
   return {
-    name: 'oracle',
+    name: 'mimir',
     description:
       'Strategic technical advisor. Use for architecture decisions, complex debugging, code review, simplification, and engineering guidance.',
     config: {

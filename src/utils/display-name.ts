@@ -2,14 +2,21 @@ import type { PluginConfig } from '../config/schema';
 
 const DISPLAY_NAME_OVERRIDES: Record<string, string> = {
   orchestrator: 'Orchestrator',
-  oracle: 'Oracle',
-  librarian: 'Librarian',
-  explorer: 'Explorer',
-  designer: 'Designer',
-  fixer: 'Fixer',
-  observer: 'Observer',
-  council: 'Council',
-  councillor: 'Councillor',
+  odin: 'Odin',
+  njord: 'Njord',
+  mimir: 'Mimir',
+  vidar: 'Vidar',
+  thor: 'Thor',
+  forseti: 'Forseti',
+  frigg: 'Frigg',
+  tyr: 'Tyr',
+  sif: 'Sif',
+  eir: 'Eir',
+  freyr: 'Freyr',
+  hermod: 'Hermod',
+  heimdall: 'Heimdall',
+  magni: 'Magni',
+  hod: 'Hod',
 };
 
 export function createDisplayNameMentionRewriter(

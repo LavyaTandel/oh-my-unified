@@ -1,6 +1,6 @@
 import type { AgentDefinition } from './orchestrator';
 
-const EXPLORER_PROMPT = `You are Explorer - a fast codebase navigation specialist.
+const SIF_PROMPT = `You are Sif - a fast codebase navigation specialist.
 
 **Role**: Quick contextual grep for codebases. Answer "Where is X?", "Find Y", "Which file has Z".
 
@@ -30,21 +30,21 @@ Concise answer to the question
 - Include line numbers when relevant
 `;
 
-export function createExplorerAgent(
+export function createSifAgent(
   model: string,
   customPrompt?: string,
   customAppendPrompt?: string,
 ): AgentDefinition {
-  let prompt = EXPLORER_PROMPT;
+  let prompt = SIF_PROMPT;
 
   if (customPrompt) {
     prompt = customPrompt;
   } else if (customAppendPrompt) {
-    prompt = `${EXPLORER_PROMPT}\n\n${customAppendPrompt}`;
+    prompt = `${SIF_PROMPT}\n\n${customAppendPrompt}`;
   }
 
   return {
-    name: 'explorer',
+    name: 'sif',
     description:
       "Fast codebase search and pattern matching. Use for finding files, locating code patterns, and answering 'where is X?' questions.",
     config: {

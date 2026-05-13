@@ -1,6 +1,6 @@
 import type { AgentDefinition } from './orchestrator';
 
-const DESIGNER_PROMPT = `You are a Designer - a frontend UI/UX specialist who creates and reviews intentional, polished experiences.
+const FREYR_PROMPT = `You are Freyr - a frontend UI/UX specialist who creates and reviews intentional, polished experiences.
 
 **Role**: Craft and review cohesive UI/UX that balances visual impact with usability.
 
@@ -38,21 +38,21 @@ const DESIGNER_PROMPT = `You are a Designer - a frontend UI/UX specialist who cr
 - When validating, focus on what users actually see and feel
 `;
 
-export function createDesignerAgent(
+export function createFreyrAgent(
   model: string,
   customPrompt?: string,
   customAppendPrompt?: string,
 ): AgentDefinition {
-  let prompt = DESIGNER_PROMPT;
+  let prompt = FREYR_PROMPT;
 
   if (customPrompt) {
     prompt = customPrompt;
   } else if (customAppendPrompt) {
-    prompt = `${DESIGNER_PROMPT}\n\n${customAppendPrompt}`;
+    prompt = `${FREYR_PROMPT}\n\n${customAppendPrompt}`;
   }
 
   return {
-    name: 'designer',
+    name: 'freyr',
     description:
       'UI/UX specialist for intentional, polished experiences. Use for visual design, responsive layouts, animations, and design review.',
     config: {

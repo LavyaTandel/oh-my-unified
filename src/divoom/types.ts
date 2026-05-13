@@ -2,7 +2,7 @@
  * Status update payload sent to the Divoom display.
  */
 export interface DivoomStatus {
-  /** Name of the currently active agent (e.g. "oracle", "librarian") */
+  /** Name of the currently active agent (e.g. "mimir", "eir") */
   agentName: string
   /** Number of active/pending tasks */
   taskCount: number

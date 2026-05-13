@@ -1,6 +1,6 @@
 import type { AgentDefinition } from './orchestrator';
 
-const FIXER_PROMPT = `You are Fixer - a fast, focused implementation specialist.
+const HERMOD_PROMPT = `You are Hermod - a fast, focused implementation specialist.
 
 **Role**: Execute code changes efficiently. You receive complete context from research agents and clear task specifications from the Orchestrator. Your job is to implement, not plan or research.
 
@@ -33,21 +33,21 @@ Brief summary of what was implemented
 </verification>
 `;
 
-export function createFixerAgent(
+export function createHermodAgent(
   model: string,
   customPrompt?: string,
   customAppendPrompt?: string,
 ): AgentDefinition {
-  let prompt = FIXER_PROMPT;
+  let prompt = HERMOD_PROMPT;
 
   if (customPrompt) {
     prompt = customPrompt;
   } else if (customAppendPrompt) {
-    prompt = `${FIXER_PROMPT}\n\n${customAppendPrompt}`;
+    prompt = `${HERMOD_PROMPT}\n\n${customAppendPrompt}`;
   }
 
   return {
-    name: 'fixer',
+    name: 'hermod',
     description:
       'Fast implementation specialist. Receives complete context and task spec, executes code changes efficiently.',
     config: {

@@ -98,14 +98,14 @@ describe('SystemObserver', () => {
   // ── 7. recordAgentActivity tracks agent ─────────────────────────────
 
   it('recordAgentActivity updates agent lastActive timestamp', () => {
-    observer.recordAgentActivity('explorer')
+    observer.recordAgentActivity('sif')
     observer.recordAgentActivity('builder')
 
     const report = observer.getStatus()
-    expect(report.agentActivity['explorer']).toBeDefined()
+    expect(report.agentActivity['sif']).toBeDefined()
     expect(report.agentActivity['builder']).toBeDefined()
-    expect(report.agentActivity['explorer'].lastActive).toBeGreaterThan(0)
-    expect(report.agentActivity['explorer'].tasksCompleted).toBe(0)
+    expect(report.agentActivity['sif'].lastActive).toBeGreaterThan(0)
+    expect(report.agentActivity['sif'].tasksCompleted).toBe(0)
   })
 
   // ── 8. recordTaskCompletion increments tasks ────────────────────────
@@ -115,10 +115,10 @@ describe('SystemObserver', () => {
     observer.recordTaskLaunch()
     expect(observer.getStatus().runningTasks).toBe(2)
 
-    observer.recordTaskCompletion('explorer')
+    observer.recordTaskCompletion('sif')
     expect(observer.getStatus().runningTasks).toBe(1)
 
-    const activity = observer.getStatus().agentActivity['explorer']
+    const activity = observer.getStatus().agentActivity['sif']
     expect(activity).toBeDefined()
     expect(activity.tasksCompleted).toBe(1)
   })
@@ -128,14 +128,14 @@ describe('SystemObserver', () => {
   it('getStatus returns the last known state without I/O', () => {
     observer.reportWarning('divoom', 'test warning')
     observer.reportError('mcp-bus', 'test error')
-    observer.recordAgentActivity('librarian')
+    observer.recordAgentActivity('eir')
     observer.recordTaskLaunch()
 
     const report = observer.getStatus()
     expect(report.timestamp).toBeGreaterThan(0)
     expect(report.warnings).toHaveLength(1)
     expect(report.errors).toHaveLength(1)
-    expect(report.agentActivity['librarian']).toBeDefined()
+    expect(report.agentActivity['eir']).toBeDefined()
     expect(report.runningTasks).toBe(1)
   })
 

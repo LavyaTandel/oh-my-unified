@@ -81,7 +81,7 @@ describe('1. Task persistence across restart', () => {
       id: 'bg_test_001',
       sessionId: 'ses_alpha',
       parentSessionId: 'ses_parent',
-      agent: 'oracle',
+      agent: 'mimir',
       status: 'running',
       description: 'Integration test task',
       category: 'test',
@@ -99,7 +99,7 @@ describe('1. Task persistence across restart', () => {
     expect(read!.id).toBe('bg_test_001');
     expect(read!.sessionId).toBe('ses_alpha');
     expect(read!.parentSessionId).toBe('ses_parent');
-    expect(read!.agent).toBe('oracle');
+    expect(read!.agent).toBe('mimir');
     expect(read!.status).toBe('running');
     expect(read!.description).toBe('Integration test task');
     expect(read!.category).toBe('test');
@@ -325,7 +325,7 @@ describe('6. Divoom display', () => {
     // Update status with agent name + task count
     await expect(
       manager.updateStatus({
-        agentName: 'oracle',
+        agentName: 'mimir',
         taskCount: 3,
         progress: 75,
         message: 'Running integration tests',
@@ -388,7 +388,7 @@ describe('8. Task reconstruction', () => {
       id: 'bg_recon_001',
       sessionId: 'ses_recon',
       parentSessionId: undefined,
-      agent: 'librarian',
+      agent: 'eir',
       status: 'running',
       description: 'Task for reconstruction test',
       category: 'test',
@@ -546,16 +546,16 @@ describe('9. Full orchestration simulation', () => {
     // Simulate errors flowing in from real modules
     observer.reportWarning('persistent-task-engine', 'reconstruction took > 5s');
     observer.reportError('mcp-bus', 'clawdi MCP not responding');
-    observer.recordAgentActivity('explorer');
-    observer.recordAgentActivity('librarian');
+    observer.recordAgentActivity('sif');
+    observer.recordAgentActivity('eir');
     observer.recordTaskLaunch();
-    observer.recordTaskCompletion('explorer');
+    observer.recordTaskCompletion('sif');
 
     const report = observer.getStatus();
     expect(report.warnings.length).toBeGreaterThanOrEqual(1);
     expect(report.errors.length).toBeGreaterThanOrEqual(1);
-    expect(Object.keys(report.agentActivity)).toContain('explorer');
-    expect(Object.keys(report.agentActivity)).toContain('librarian');
+    expect(Object.keys(report.agentActivity)).toContain('sif');
+    expect(Object.keys(report.agentActivity)).toContain('eir');
     expect(report.runningTasks).toBe(0); // launched then completed
 
     observer.stop();

@@ -44,7 +44,7 @@ export function createCouncillorAgent(
     : COUNCILLOR_PROMPT;
 
   return {
-    name: 'councillor',
+    name: 'hod',
     description:
       'Read-only council advisor. Examines codebase and provides independent analysis. Spawned internally by the council system.',
     config: {

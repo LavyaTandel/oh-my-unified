@@ -14,12 +14,12 @@ import { getAgentMcpList } from '../config/agent-mcps';
 
 import { createCouncilAgent } from './council';
 import { createCouncillorAgent } from './councillor';
-import { createDesignerAgent } from './designer';
-import { createExplorerAgent } from './explorer';
-import { createFixerAgent } from './fixer';
-import { createLibrarianAgent } from './librarian';
-import { createObserverAgent } from './observer';
-import { createOracleAgent } from './oracle';
+import { createFreyrAgent } from './designer';
+import { createSifAgent } from './explorer';
+import { createHermodAgent } from './fixer';
+import { createEirAgent } from './librarian';
+import { createHeimdallAgent } from './observer';
+import { createMimirAgent } from './oracle';
 import {
   type AgentDefinition,
   buildOrchestratorPrompt,
@@ -34,7 +34,7 @@ type AgentFactory = (
   customAppendPrompt?: string,
 ) => AgentDefinition;
 
-const COUNCIL_TOOL_ALLOWED_AGENTS = new Set(['council']);
+const COUNCIL_TOOL_ALLOWED_AGENTS = new Set(['forseti']);
 const SAFE_AGENT_ALIAS_RE = /^[a-z][a-z0-9_-]*$/i;
 
 function normalizeDisplayName(displayName: string): string {
@@ -118,21 +118,21 @@ const agentFactories: Record<string, AgentFactory> = {
       },
     };
   },
-  oracle: (model: string, customPrompt?: string, customAppendPrompt?: string) =>
-    createOracleAgent(model, customPrompt, customAppendPrompt),
-  librarian: (model: string, customPrompt?: string, customAppendPrompt?: string) =>
-    createLibrarianAgent(model, customPrompt, customAppendPrompt),
-  explorer: (model: string, customPrompt?: string, customAppendPrompt?: string) =>
-    createExplorerAgent(model, customPrompt, customAppendPrompt),
-  designer: (model: string, customPrompt?: string, customAppendPrompt?: string) =>
-    createDesignerAgent(model, customPrompt, customAppendPrompt),
-  fixer: (model: string, customPrompt?: string, customAppendPrompt?: string) =>
-    createFixerAgent(model, customPrompt, customAppendPrompt),
-  observer: (model: string, customPrompt?: string, customAppendPrompt?: string) =>
-    createObserverAgent(model, customPrompt, customAppendPrompt),
-  council: (model: string, customPrompt?: string, customAppendPrompt?: string) =>
+  mimir: (model: string, customPrompt?: string, customAppendPrompt?: string) =>
+    createMimirAgent(model, customPrompt, customAppendPrompt),
+  eir: (model: string, customPrompt?: string, customAppendPrompt?: string) =>
+    createEirAgent(model, customPrompt, customAppendPrompt),
+  sif: (model: string, customPrompt?: string, customAppendPrompt?: string) =>
+    createSifAgent(model, customPrompt, customAppendPrompt),
+  freyr: (model: string, customPrompt?: string, customAppendPrompt?: string) =>
+    createFreyrAgent(model, customPrompt, customAppendPrompt),
+  hermod: (model: string, customPrompt?: string, customAppendPrompt?: string) =>
+    createHermodAgent(model, customPrompt, customAppendPrompt),
+  heimdall: (model: string, customPrompt?: string, customAppendPrompt?: string) =>
+    createHeimdallAgent(model, customPrompt, customAppendPrompt),
+  forseti: (model: string, customPrompt?: string, customAppendPrompt?: string) =>
     createCouncilAgent(model, customPrompt, customAppendPrompt),
-  councillor: (model: string, customPrompt?: string, customAppendPrompt?: string) =>
+  hod: (model: string, customPrompt?: string, customAppendPrompt?: string) =>
     createCouncillorAgent(model, customPrompt, customAppendPrompt),
 };
 

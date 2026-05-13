@@ -53,7 +53,7 @@ export function createCouncilAgent(
   }
 
   return {
-    name: 'council',
+    name: 'forseti',
     description:
       'Multi-LLM consensus orchestration. Delegates to council_session tool to gather multiple expert opinions and synthesizes the final answer.',
     config: {

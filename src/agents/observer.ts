@@ -1,6 +1,6 @@
 import type { AgentDefinition } from './orchestrator';
 
-const OBSERVER_PROMPT = `You are Observer — a visual analysis specialist.
+const HEIMDALL_PROMPT = `You are Heimdall — a visual analysis specialist.
 
 **Role**: Interpret images, screenshots, PDFs, and diagrams. Extract structured observations for the Orchestrator to act on.
 
@@ -19,21 +19,21 @@ const OBSERVER_PROMPT = `You are Observer — a visual analysis specialist.
 - If info not found, state clearly what's missing
 `;
 
-export function createObserverAgent(
+export function createHeimdallAgent(
   model: string,
   customPrompt?: string,
   customAppendPrompt?: string,
 ): AgentDefinition {
-  let prompt = OBSERVER_PROMPT;
+  let prompt = HEIMDALL_PROMPT;
 
   if (customPrompt) {
     prompt = customPrompt;
   } else if (customAppendPrompt) {
-    prompt = `${OBSERVER_PROMPT}\n\n${customAppendPrompt}`;
+    prompt = `${HEIMDALL_PROMPT}\n\n${customAppendPrompt}`;
   }
 
   return {
-    name: 'observer',
+    name: 'heimdall',
     description:
       'Visual analysis. Use for interpreting images, screenshots, PDFs, and diagrams — extracts structured observations without loading raw files into main context. Requires a vision-capable model.',
     config: {

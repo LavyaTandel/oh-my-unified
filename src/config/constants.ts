@@ -1,47 +1,47 @@
 // Agent name constants
 export const ORCHESTRATOR_NAME = 'orchestrator' as const;
 export const SUBAGENT_NAMES = [
-  'explorer',
-  'librarian',
-  'oracle',
-  'designer',
-  'fixer',
-  'observer',
-  'council',
-  'councillor',
+  'sif',
+  'eir',
+  'mimir',
+  'freyr',
+  'hermod',
+  'heimdall',
+  'forseti',
+  'hod',
 ] as const;
 
 export const ALL_AGENT_NAMES = [ORCHESTRATOR_NAME, ...SUBAGENT_NAMES] as const;
 
 // Agent aliases for backward compatibility
 export const AGENT_ALIASES: Record<string, string> = {
-  explore: 'explorer',
-  'frontend-ui-ux-engineer': 'designer',
+  explore: 'sif',
+  'frontend-ui-ux-engineer': 'freyr',
 };
 
 // Which agents each agent type can spawn via delegation
 export const ORCHESTRATABLE_AGENTS = [
-  'explorer',
-  'librarian',
-  'oracle',
-  'designer',
-  'fixer',
-  'observer',
-  'council',
+  'sif',
+  'eir',
+  'mimir',
+  'freyr',
+  'hermod',
+  'heimdall',
+  'forseti',
 ] as const;
 
-export const PROTECTED_AGENTS = new Set(['orchestrator', 'councillor']);
+export const PROTECTED_AGENTS = new Set(['orchestrator', 'hod']);
 
 export const SUBAGENT_DELEGATION_RULES: Record<string, readonly string[]> = {
   orchestrator: ORCHESTRATABLE_AGENTS,
-  fixer: [],
-  designer: [],
-  explorer: [],
-  librarian: [],
-  oracle: [],
-  observer: [],
-  council: [],
-  councillor: [],
+  hermod: [],
+  freyr: [],
+  sif: [],
+  eir: [],
+  mimir: [],
+  heimdall: [],
+  forseti: [],
+  hod: [],
 };
 
 // Loom 5-model routing: explicit model→role mapping
@@ -60,42 +60,42 @@ export const LOOM_PRESET: Record<string, any> = {
     skills: ['*'],
     mcps: ['*', '!context7'],
   },
-  oracle: {
+  mimir: {
     model: 'opencode/nemotron-3-super-free',
     variant: 'max',
     skills: ['simplify'],
     mcps: [],
   },
-  council: {
+  forseti: {
     model: 'opencode/nemotron-3-super-free',
     variant: 'max',
     skills: [],
     mcps: [],
   },
-  librarian: {
+  eir: {
     model: 'opencode/minimax-m2.5-free',
     variant: 'medium',
     skills: [],
     mcps: ['websearch', 'context7', 'grep_app'],
   },
-  explorer: {
+  sif: {
     model: 'opencode/big-pickle',
     skills: [],
     mcps: [],
   },
-  designer: {
+  freyr: {
     model: 'opencode/minimax-m2.5-free',
     variant: 'medium',
     skills: ['agent-browser'],
     mcps: [],
   },
-  fixer: {
+  hermod: {
     model: 'opencode/deepseek-v4-flash-free',
     variant: 'max',
     skills: [],
     mcps: [],
   },
-  observer: {
+  heimdall: {
     model: 'opencode/minimax-m2.5-free',
     skills: [],
     mcps: [],
@@ -105,14 +105,14 @@ export const LOOM_PRESET: Record<string, any> = {
 // Default models (non-loom fallback)
 export const DEFAULT_MODELS: Record<string, string | undefined> = {
   orchestrator: undefined,
-  oracle: 'openai/gpt-5.5',
-  librarian: 'openai/gpt-5.4-mini',
-  explorer: 'openai/gpt-5.4-mini',
-  designer: 'openai/gpt-5.4-mini',
-  fixer: 'openai/gpt-5.4-mini',
-  observer: 'openai/gpt-5.4-mini',
-  council: 'openai/gpt-5.4-mini',
-  councillor: 'openai/gpt-5.4-mini',
+  mimir: 'openai/gpt-5.5',
+  eir: 'openai/gpt-5.4-mini',
+  sif: 'openai/gpt-5.4-mini',
+  freyr: 'openai/gpt-5.4-mini',
+  hermod: 'openai/gpt-5.4-mini',
+  heimdall: 'openai/gpt-5.4-mini',
+  forseti: 'openai/gpt-5.4-mini',
+  hod: 'openai/gpt-5.4-mini',
 };
 
 // Polling configuration
