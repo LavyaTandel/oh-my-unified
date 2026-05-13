@@ -1,6 +1,6 @@
 {
   "name": "oh-my-unified",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Unified OpenCode plugin combining oh-my-openagent + oh-my-opencode-slim with PersistentTaskEngine, MCP Bus, and Assessment→Assembly→Action workflow",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
