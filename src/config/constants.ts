@@ -46,7 +46,7 @@ export const SUBAGENT_DELEGATION_RULES: Record<string, readonly string[]> = {
 
 // Loom 5-model routing: explicit model→role mapping
 export const LOOM_MODEL_IDS = [
-  'opencode/ring-2.6-1t-free',
+  'opencode/nemotron-3-super-free',
   'opencode/nemotron-3-super-free',
   'opencode/deepseek-v4-flash-free',
   'opencode/minimax-m2.5-free',
@@ -55,7 +55,7 @@ export const LOOM_MODEL_IDS = [
 
 export const LOOM_PRESET: Record<string, any> = {
   orchestrator: {
-    model: 'opencode/ring-2.6-1t-free',
+    model: 'opencode/nemotron-3-super-free',
     variant: 'max',
     skills: ['*'],
     mcps: ['*', '!context7'],

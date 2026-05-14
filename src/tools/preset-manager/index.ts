@@ -11,7 +11,7 @@ export const PRESETS: Record<string, ModelPreset> = {
     description: 'Uses only free OpenCode models — zero cost, good for exploration',
     tier: 'free',
     models: {
-      odin: 'opencode/ring-2.6-1t-free',
+      odin: 'opencode/nemotron-3-super-free',
       njord: 'opencode/deepseek-v4-flash-free',
       mimir: 'opencode/nemotron-3-super-free',
       thor: 'opencode/deepseek-v4-flash-free',

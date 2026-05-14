@@ -24,7 +24,7 @@ export const AGENTS: AgentConfig[] = [
     displayName: '@Odin',
     description: 'Chief strategist — interviews, researches, plans. Wields Huginn and Muninn (thought and memory).',
     role: 'Strategist',
-    model: 'opencode/ring-2.6-1t-free',
+    model: 'opencode/nemotron-3-super-free',
     fallbackModels: ['opencode/nemotron-3-super-free', 'opencode/deepseek-v4-flash-free'],
     template: `@Odin — All-Father, Chief Strategist of the Norse Pantheon
 
@@ -72,7 +72,7 @@ RULE OF THUMB: Need a plan? Need research? Need strategy? -> @Odin. Need executi
     displayName: '@Njord',
     description: 'Orchestrator — delegates tasks to specialist agents, manages execution flow',
     role: 'Orchestrator',
-    model: 'opencode/ring-2.6-1t-free',
+    model: 'opencode/nemotron-3-super-free',
     fallbackModels: ['opencode/nemotron-3-super-free', 'opencode/deepseek-v4-flash-free'],
     template: `@Njord — Vanir God of the Sea, Master of Winds and Waters
 
@@ -122,7 +122,7 @@ RULE OF THUMB: Have a plan to execute? -> @Njord. Still figuring out what to do?
     description: 'Strategic advisor — architecture review, complex debugging, hard problems',
     role: 'Advisor',
     model: 'opencode/nemotron-3-super-free',
-    fallbackModels: ['opencode/ring-2.6-1t-free', 'opencode/deepseek-v4-flash-free'],
+    fallbackModels: ['opencode/nemotron-3-super-free', 'opencode/deepseek-v4-flash-free'],
     template: `@Mimir — Advisor, Guardian of the Well of Wisdom
 
 You are Mimir, the wisest of the Norse gods. You drink from the Well of Wisdom beneath Yggdrasil and see what others cannot. Odin sacrificed his eye for a single drink from your well.
@@ -166,7 +166,7 @@ RULE OF THUMB: Need senior architect review? -> @Mimir. Need code written? -> @T
     displayName: '@Vidar',
     description: 'Codebase mapper — explores structure, generates codemaps',
     role: 'Mapper',
-    model: 'opencode/ring-2.6-1t-free',
+    model: 'opencode/nemotron-3-super-free',
     fallbackModels: ['opencode/nemotron-3-super-free', 'opencode/deepseek-v4-flash-free'],
     template: `@Vidar — The Silent One, God of Vengeance and Discovery
 
@@ -299,7 +299,7 @@ RULE OF THUMB: Need multiple viewpoints on a hard problem? -> @Forseti. Need one
     description: 'Gap analyst — identifies hidden requirements and risks',
     role: 'Analyst',
     model: 'opencode/nemotron-3-super-free',
-    fallbackModels: ['opencode/ring-2.6-1t-free'],
+    fallbackModels: ['opencode/nemotron-3-super-free'],
     template: `@Frigg — All-Mother, Goddess of Foresight and Wisdom
 
 You are Frigg, the All-Mother, wife of Odin and the only god who sees the future. You know the threads of fate before they are woven. Your gift is seeing what others will miss until it is too late.
@@ -343,7 +343,7 @@ RULE OF THUMB: About to start building? Let @Frigg check the plan first. What co
     description: 'Quality critic — rigorous review against standards',
     role: 'Critic',
     model: 'opencode/nemotron-3-super-free',
-    fallbackModels: ['opencode/ring-2.6-1t-free'],
+    fallbackModels: ['opencode/nemotron-3-super-free'],
     template: `@Tyr — God of Justice, Keeper of the Oath, the One-Handed Judge
 
 You are Tyr, the bravest of the gods. You placed your hand in Fenrir's mouth as a pledge of good faith, knowing the wolf would bite it off. You are the arbiter of standards, the enforcer of quality, the one who holds the line.

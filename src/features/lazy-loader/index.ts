@@ -62,3 +62,6 @@ export class LazyLoader {
     return loaded
   }
 }
+
+// Singleton instance for cross-module registration
+export const lazyLoader = new LazyLoader()

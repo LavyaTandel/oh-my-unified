@@ -21,6 +21,9 @@ import {
   createReadSessionTool,
 } from './tools/subtask';
 import { recordTuiAgentModel, recordTuiAgentModels } from './tui-state';
+import { updateAgentModel, setActiveAgent } from './tui';
+import { AGENTS, PRIMARY_AGENTS } from './features/agent-commands';
+import { lazyLoader } from './features/lazy-loader';
 import { createDisplayNameMentionRewriter } from './utils/index';
 import { initLogger, log } from './utils/logger';
 import { collapseSystemInPlace } from './utils/system-collapse';
@@ -206,6 +209,21 @@ const OhMyUnified: Plugin = async (ctx) => {
     log('[plugin] health check passed', { agents: agentCount, tools: toolCount, mcps: mcpCount });
   }
 
+  // Register all agents with the TUI on startup
+  // This makes them visible and selectable in the desktop sidebar
+  // Using the same pattern as oh-my-openagent's agent-sort-shim
+  for (const agent of PRIMARY_AGENTS) {
+    updateAgentModel(agent.name, agent.model, agent.displayName)
+    // Register in lazy loader
+    lazyLoader.register(agent.name, 'agent', agent.displayName, agent.description)
+  }
+  setActiveAgent('odin')
+
+  // Also register sub-agents in lazy loader (they're not in TUI but available for delegation)
+  for (const agent of AGENTS.filter(a => !a.isPrimary)) {
+    lazyLoader.register(agent.name, 'agent', agent.displayName, agent.description)
+  }
+
   // Probe jsdom
   probeJSDOM().then((err) => {
     if (err) {
@@ -223,13 +241,37 @@ return {
 
     agent: agents,
 
-    tool: {
-      ...councilTools,
-      webfetch: webfetch as any,
-      ast_grep_search: ast_grep_search as any,
-      ast_grep_replace: ast_grep_replace as any,
-      subtask: (createSubtaskTool(ctx, subtaskState, {} as any) as any).func as any,
-      read_session: (createReadSessionTool(ctx.client, subtaskState) as any).func as any,
+    tools: {
+      webfetch: {
+        name: 'webfetch',
+        description: 'Fetch web content from a URL',
+        input: { type: 'object', properties: { url: { type: 'string' } }, required: ['url'] },
+        func: webfetch,
+      },
+      ast_grep_search: {
+        name: 'ast_grep_search',
+        description: 'Search code with AST patterns',
+        input: { type: 'object', properties: { pattern: { type: 'string' } }, required: ['pattern'] },
+        func: ast_grep_search,
+      },
+      ast_grep_replace: {
+        name: 'ast_grep_replace',
+        description: 'Replace code with AST patterns',
+        input: { type: 'object', properties: { pattern: { type: 'string' }, rewrite: { type: 'string' } }, required: ['pattern', 'rewrite'] },
+        func: ast_grep_replace,
+      },
+      subtask: {
+        name: 'subtask',
+        description: 'Create a subtask for parallel execution',
+        input: { type: 'object', properties: { prompt: { type: 'string' } }, required: ['prompt'] },
+        func: (createSubtaskTool(ctx, subtaskState, {} as any) as any).func,
+      },
+      read_session: {
+        name: 'read_session',
+        description: 'Read session data for a given session',
+        input: { type: 'object', properties: { sessionID: { type: 'string' } }, required: ['sessionID'] },
+        func: (createReadSessionTool(ctx.client, subtaskState) as any).func,
+      },
     },
 
     mcp: mcps,

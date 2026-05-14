@@ -67,7 +67,7 @@ describe('PresetManager', () => {
 
   it('returns the model for a given agent from the active preset', () => {
     const model = manager.getModelForAgent('odin')
-    expect(model).toBe('opencode/ring-2.6-1t-free')
+    expect(model).toBe('opencode/nemotron-3-super-free')
   })
 
   // ── 8. getModelForAgent reflects preset changes ────────────────────────
