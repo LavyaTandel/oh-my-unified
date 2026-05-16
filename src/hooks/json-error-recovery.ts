@@ -210,7 +210,7 @@ export function createJsonErrorRecoveryHook(
   }
 
   return {
-    'oh-my-unified.tool.after': handleToolAfter,
+    'tool.after': handleToolAfter,
     recover,
   };
 }

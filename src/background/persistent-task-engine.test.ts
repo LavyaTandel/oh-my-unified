@@ -263,9 +263,9 @@ describe('PersistentTaskEngine', () => {
   // ============================================================
   // 12. onSessionIdle routes to completion detector
   // ============================================================
-  test('12. onSessionIdle returns deferred for short elapsed', () => {
+  test('12. onSessionIdle returns coalesced (debounced)', () => {
     const result = engine.onSessionIdle('bg_test', 'ses_test', 5);
-    expect(result).toBe('deferred');
+    expect(result).toBe('coalesced');
   });
 
   // ============================================================

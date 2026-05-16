@@ -9,8 +9,6 @@ export { createDirectoryContextInjectorHook } from './directory-context-injector
 export { createAutoCommandDetectorHook } from './auto-command-detector';
 export { createPostToolNudgeHook } from './post-tool-nudge';
 export { createTodoContinuationHook } from './todo-continuation';
-export { createOmPlanHook } from './om-plan';
-export { createOmAuditHook } from './om-audit';
 
 // Synthesized hooks — combine best patterns from openagent + slim
 export {

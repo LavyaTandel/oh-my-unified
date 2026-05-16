@@ -12,26 +12,48 @@ export class RoleEnforcer {
     const agent = getAgent(agentName)
     if (!agent) return { agentName, violation: 'Unknown agent', blocked: true }
 
-    // Role-based permission check
     switch (agent.role) {
-      case 'Strategist':   // Odin — can do everything
+      case 'Strategist':    // Odin — can do everything
         return { agentName, violation: '', blocked: false }
-      case 'Orchestrator': // Njord — can delegate and read
+      case 'Orchestrator':  // Njord — can delegate and read
         if (action === 'edit') return { agentName, violation: 'Orchestrators cannot edit files directly', blocked: true }
         return { agentName, violation: '', blocked: false }
-      case 'Advisor':      // Mimir — read-only (but can research)
+      case 'Advisor':       // Mimir — read-only (but can research)
         if (action !== 'read' && action !== 'research') return { agentName, violation: 'Advisors are read-only', blocked: true }
         return { agentName, violation: '', blocked: false }
-      case 'Mapper':       // Vidar — read + research
+      case 'Mapper':        // Vidar — read + research
         if (action === 'edit') return { agentName, violation: 'Mappers cannot edit', blocked: true }
         return { agentName, violation: '', blocked: false }
-      case 'Builder':      // Thor — can edit and delegate
+      case 'Builder':       // Thor — can edit and delegate
         return { agentName, violation: '', blocked: false }
-      case 'Runner':       // Hermod — execute only
+      case 'Analyst':       // Frigg — read + research
+        if (action === 'edit' || action === 'delegate') return { agentName, violation: 'Analysts are read-only', blocked: true }
+        return { agentName, violation: '', blocked: false }
+      case 'Critic':        // Tyr — read-only review
+        if (action !== 'read' && action !== 'research') return { agentName, violation: 'Critics are read-only', blocked: true }
+        return { agentName, violation: '', blocked: false }
+      case 'Runner':        // Hermod — execute only
         if (action === 'delegate') return { agentName, violation: 'Runners cannot delegate', blocked: true }
         return { agentName, violation: '', blocked: false }
-      case 'Scout': case 'Scholar': case 'Watcher': // Read-only but can research
-        if (action !== 'read' && action !== 'research') return { agentName, violation: `${agent.role}s are read-only`, blocked: true }
+      case 'Artisan':       // Freyr — can edit and research
+        return { agentName, violation: '', blocked: false }
+      case 'Deliberator':   // Forseti — read + delegate (to council)
+        if (action === 'edit') return { agentName, violation: 'Deliberators cannot edit', blocked: true }
+        return { agentName, violation: '', blocked: false }
+      case 'Voter':         // Hod — read-only
+        if (action !== 'read' && action !== 'research') return { agentName, violation: 'Voters are read-only', blocked: true }
+        return { agentName, violation: '', blocked: false }
+      case 'Follower':      // Magni — read + edit, no delegate
+        if (action === 'delegate') return { agentName, violation: 'Followers cannot delegate', blocked: true }
+        return { agentName, violation: '', blocked: false }
+      case 'Scout':         // Sif — read-only search
+        if (action !== 'read' && action !== 'research') return { agentName, violation: 'Scouts are read-only', blocked: true }
+        return { agentName, violation: '', blocked: false }
+      case 'Scholar':       // Eir — read + research
+        if (action === 'edit' || action === 'delegate') return { agentName, violation: 'Scholars are read-only', blocked: true }
+        return { agentName, violation: '', blocked: false }
+      case 'Watcher':       // Heimdall — read-only visual analysis
+        if (action !== 'read' && action !== 'research') return { agentName, violation: 'Watchers are read-only', blocked: true }
         return { agentName, violation: '', blocked: false }
       default:
         return { agentName, violation: '', blocked: false }

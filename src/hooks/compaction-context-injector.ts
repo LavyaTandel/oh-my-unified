@@ -5,40 +5,46 @@ import { getPersistedData, setPersistedData } from '../utils/persist';
 import { Phase } from '../workflow';
 
 const STORAGE_KEY = 'compaction-context';
+const OWNERSHIP_KEY = 'compaction-ownership';
 
 /**
  * Context snapshot preserved across compaction boundaries.
  */
 export interface CompactionContext {
-  /** Current workflow phase */
   phase?: Phase;
-  /** Active agent names */
   activeAgents: string[];
-  /** Current task description */
   currentTask?: string;
-  /** Active session IDs */
   sessionIds: string[];
-  /** Arbitrary key-value metadata */
   metadata: Record<string, unknown>;
-  /** Timestamp of the snapshot */
   timestamp: number;
 }
 
 /**
- * Configuration for compaction context injection.
+ * Ownership record preventing ralph-loop and other agents from
+ * continuing sessions they don't own.
  */
+export interface CompactionOwnership {
+  /** Session ID that owns the continuation */
+  ownerSessionId: string;
+  /** Agent name that initiated the continuation */
+  ownerAgent: string;
+  /** Timestamp when ownership was claimed */
+  claimedAt: number;
+  /** Whether this continuation is still valid */
+  valid: boolean;
+}
+
 export interface CompactionContextInjectorConfig {
-  /** Enable context preservation (default: true) */
   enabled?: boolean;
-  /** Metadata keys to persist selectively */
   preserveKeys?: string[];
+  /** Enable ownership guards (default: true) */
+  enableOwnershipGuards?: boolean;
 }
 
 /**
  * Creates a hook that preserves key operational context across session
- * compaction events. Before compaction, it snapshots the current task,
- * workflow phase, and active agents. After compaction, it re-injects
- * that context so the agent doesn't lose its place.
+ * compaction events AND enforces continuation ownership to prevent
+ * ralph-loop and other agents from hijacking sessions they don't own.
  */
 export function createCompactionContextInjectorHook(
   _ctx: PluginInput,
@@ -48,6 +54,7 @@ export function createCompactionContextInjectorHook(
   const cfg: Required<CompactionContextInjectorConfig> = {
     enabled: true,
     preserveKeys: ['phase', 'currentTask', 'activeAgents', 'sessionIds'],
+    enableOwnershipGuards: true,
     ...hookConfig,
   };
 
@@ -58,9 +65,8 @@ export function createCompactionContextInjectorHook(
     timestamp: Date.now(),
   };
 
-  /**
-   * Builds the latest context snapshot from current state.
-   */
+  let currentOwnership: CompactionOwnership | null = null;
+
   function buildSnapshot(overrides?: Partial<CompactionContext>): CompactionContext {
     return {
       ...currentContext,
@@ -69,19 +75,48 @@ export function createCompactionContextInjectorHook(
     };
   }
 
-  /**
-   * Updates the in-memory context with new values.
-   */
   function updateContext(partial: Partial<CompactionContext>): void {
     currentContext = { ...currentContext, ...partial, timestamp: Date.now() };
   }
 
   /**
-   * Hook that fires before session compaction. Persists the current
-   * context snapshot to disk.
+   * Claim ownership for a session that is about to be compacted.
+   * Only the session that created the background task can continue it.
    */
+  function claimOwnership(sessionId: string, agent: string): CompactionOwnership {
+    const ownership: CompactionOwnership = {
+      ownerSessionId: sessionId,
+      ownerAgent: agent,
+      claimedAt: Date.now(),
+      valid: true,
+    };
+    currentOwnership = ownership;
+    return ownership;
+  }
+
+  /**
+   * Release ownership when a session completes or is cancelled.
+   */
+  function releaseOwnership(): void {
+    if (currentOwnership) {
+      currentOwnership.valid = false;
+      currentOwnership = null;
+    }
+  }
+
+  /**
+   * Check if a session is allowed to continue after compaction.
+   * Returns false if another session owns the continuation.
+   */
+  function canContinue(sessionId: string): boolean {
+    if (!cfg.enableOwnershipGuards) return true;
+    if (!currentOwnership) return true;
+    if (!currentOwnership.valid) return true;
+    return currentOwnership.ownerSessionId === sessionId;
+  }
+
   async function handleCompactionBefore(
-    _input: Record<string, unknown>,
+    input: Record<string, unknown>,
     _output: Record<string, unknown>,
   ): Promise<void> {
     if (!cfg.enabled) return;
@@ -97,18 +132,67 @@ export function createCompactionContextInjectorHook(
     } catch (err) {
       log(`[compaction-context] failed to save snapshot: ${err}`);
     }
+
+    // Persist ownership if active
+    if (cfg.enableOwnershipGuards && currentOwnership?.valid) {
+      try {
+        setPersistedData(OWNERSHIP_KEY, currentOwnership);
+        log('[compaction-ownership] persisted ownership before compaction', {
+          owner: currentOwnership.ownerAgent,
+          session: currentOwnership.ownerSessionId.slice(0, 12),
+        });
+      } catch (err) {
+        log(`[compaction-ownership] failed to persist ownership: ${err}`);
+      }
+    }
+
+    // Extract session info from input if available
+    const sessionId = (input.sessionId as string) || '';
+    const agent = (input.agent as string) || 'unknown';
+    if (sessionId) {
+      claimOwnership(sessionId, agent);
+    }
   }
 
-  /**
-   * Hook that fires after session compaction. Restores the persisted
-   * context back into memory and injects it into the session.
-   */
   async function handleCompactionAfter(
-    _input: Record<string, unknown>,
+    input: Record<string, unknown>,
     output: Record<string, unknown>,
   ): Promise<void> {
     if (!cfg.enabled) return;
 
+    // Check ownership before allowing continuation
+    const sessionId = (input.sessionId as string) || '';
+    if (!canContinue(sessionId)) {
+      log('[compaction-ownership] continuation blocked — session does not own this task', {
+        requestingSession: sessionId.slice(0, 12),
+        ownerSession: currentOwnership?.ownerSessionId.slice(0, 12),
+        ownerAgent: currentOwnership?.ownerAgent,
+      });
+      (output as Record<string, unknown>).ownershipBlocked = true;
+      (output as Record<string, unknown>).injectedContext =
+        '--- Continuation Blocked: Ownership Mismatch ---\n' +
+        `This task is owned by session ${currentOwnership?.ownerAgent} (${currentOwnership?.ownerSessionId.slice(0, 12)}).\n` +
+        'You cannot continue this task. Let the owning session handle it.\n' +
+        '---';
+      return;
+    }
+
+    // Restore ownership from persistence
+    if (cfg.enableOwnershipGuards) {
+      try {
+        const savedOwnership = getPersistedData<CompactionOwnership | null>(OWNERSHIP_KEY, null);
+        if (savedOwnership?.valid) {
+          currentOwnership = savedOwnership;
+          log('[compaction-ownership] restored ownership after compaction', {
+            owner: savedOwnership.ownerAgent,
+          });
+        }
+      } catch (err) {
+        log(`[compaction-ownership] failed to restore ownership: ${err}`);
+      }
+    }
+
+    // Restore context
     try {
       const saved = getPersistedData<CompactionContext | null>(STORAGE_KEY, null);
       if (!saved) {
@@ -118,7 +202,6 @@ export function createCompactionContextInjectorHook(
 
       currentContext = saved;
 
-      // Build a compact restoration message
       const lines: string[] = ['--- Context Restored After Compaction ---'];
       if (saved.currentTask) {
         lines.push(`Task: ${saved.currentTask}`);
@@ -132,6 +215,9 @@ export function createCompactionContextInjectorHook(
       }
       if (saved.sessionIds.length > 0) {
         lines.push(`Sessions: ${saved.sessionIds.join(', ')}`);
+      }
+      if (currentOwnership?.valid) {
+        lines.push(`Continuation Owner: ${currentOwnership.ownerAgent}`);
       }
       lines.push('---');
 
@@ -151,7 +237,11 @@ export function createCompactionContextInjectorHook(
     updateContext,
     buildSnapshot,
     getContext: () => ({ ...currentContext }),
-    'oh-my-unified.compaction.before': handleCompactionBefore,
-    'oh-my-unified.compaction.after': handleCompactionAfter,
+    claimOwnership,
+    releaseOwnership,
+    canContinue,
+    getOwnership: () => currentOwnership,
+    'compaction.before': handleCompactionBefore,
+    'compaction.after': handleCompactionAfter,
   };
 }

@@ -124,7 +124,7 @@ export function createAgentUsageReminderHook(
   }
 
   return {
-    'oh-my-unified.tool.after': handleToolAfter,
+    'tool.after': handleToolAfter,
     getStats: () => ({
       primitiveTurnCount,
       totalTurns,

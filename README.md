@@ -1,539 +1,490 @@
+> [!TIP]
+> **The plugin that does what the others promise.**
+>
+> Others made Anthropic block OpenCode. We took that energy, added 613 tests, a transparency log, and built something that ships.
+>
+> [**→ See the difference**](#why-another-plugin)
+
 <div align="center">
+
+<img src="img/hero-banner.png" alt="oh-my-unified · The Norse Pantheon of AI Agents" width="900" style="border-radius: 16px; margin-bottom: 16px;">
 
 # ⚡ oh-my-unified
 
-**The successor to oh-my-openagent + oh-my-opencode-slim. One plugin to rule them all.**
+[![npm version](https://img.shields.io/npm/v/oh-my-unified?style=for-the-badge&logo=npm&color=cb3837&labelColor=1a1a2e)](https://www.npmjs.com/package/oh-my-unified)
+[![License](https://img.shields.io/badge/license-MIT-00d2ff?style=for-the-badge&labelColor=1a1a2e)](LICENSE)
+[![Tests](https://img.shields.io/badge/tests-613%20passing-22c55e?style=for-the-badge&labelColor=1a1a2e)](https://github.com/lavyatandel/oh-my-unified)
+[![Build](https://img.shields.io/badge/build-0.39MB-f43f5e?style=for-the-badge&labelColor=1a1a2e)](dist/)
+[![OpenCode](https://img.shields.io/badge/OpenCode-plugin-7c3aed?style=for-the-badge&labelColor=1a1a2e)](https://github.com/lavyatandel/oh-my-unified)
 
-[![npm version](https://img.shields.io/npm/v/oh-my-unified?style=flat-square&logo=npm&color=cb3837&labelColor=1a1a2e)](https://www.npmjs.com/package/oh-my-unified)
-[![License](https://img.shields.io/badge/license-MIT-00d2ff?style=flat-square&labelColor=1a1a2e)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-266%20passing-22c55e?style=flat-square&labelColor=1a1a2e)](https://github.com/lavyatandel/oh-my-unified)
-[![Lines](https://img.shields.io/badge/lines-8.3k-6366f1?style=flat-square&labelColor=1a1a2e)](src/)
-[![Build](https://img.shields.io/badge/build-160KB-f43f5e?style=flat-square&labelColor=1a1a2e)](dist/)
-[![OpenCode](https://img.shields.io/badge/OpenCode-plugin-7c3aed?style=flat-square&labelColor=1a1a2e)](https://github.com/lavyatandel/oh-my-unified)
-[![Maintained](https://img.shields.io/badge/maintained-yes-22c55e?style=flat-square&labelColor=1a1a2e)](https://github.com/lavyatandel/oh-my-unified)
+**Think First. Assemble the Right Team. Execute with Confidence. Improve Relentlessly.**
 
-**OpenCode Plugin** · Norse Pantheon Agents · Persistent Task Engine · MCP Bus · 3-Phase Workflow
+**15 Specialized Agents · 5-Model Routing · Transparency Log · Improvisation Loop**
 
 </div>
 
 ---
 
-## What is oh-my-unified?
+## Why Another Plugin?
 
-oh-my-unified is an **agent orchestration layer for OpenCode** that merges the best of two legendary plugins into a single, cohesive system. It combines the persistent background task engine, extensive hook system, and agent toolkit from oh-my-openagent with the structured orchestrator pattern, interview engine, and council system from oh-my-opencode-slim.
+Because the existing ones left gaps.
 
-The result: a **Norse Pantheon of 9 specialized agents** (with 9 additional alias agents for 18 total), a **SQLite-backed PersistentTaskEngine** that banishes the "Task not found" bug forever, a **14-server MCP Integration Bus** with health checks, and a **3-phase confidence-gated workflow** that routes each phase to the optimal model.
+Some plugins are brilliant — 59 hooks, Team Mode, Hashline edits. But they're black boxes. You don't know *why* they picked a model, *what* decisions they made, or *when* something silently failed.
 
-Instead of forcing one model to do everything, oh-my-unified routes each part of the job to the agent best suited for it, balancing **quality, speed, and cost**.
+Others had clean routing. But 82 lines of README and zero depth.
+
+So I did what any obsessive developer does: I studied what existed, kept what actually worked, and built the rest from scratch. The result:
+
+| Feature | Others | **oh-my-unified** |
+|---------|:-:|:-:|
+| Tests | — | **613 passing** |
+| Transparency | — | **Full audit log** |
+| Confidence scores | — | **Every decision** |
+| Cross-session learning | — | **Gets smarter** |
+| Circuit breakers | — | **Fail gracefully** |
+| Plugin registry | — | **Third-party extensible** |
+| Model predictor | — | **Learns what wins** |
+| Benchmark tracker | — | **Spots regressions** |
+| Improvisation Loop | — | **Refine until satisfied** |
+| License | SUL-1.0 | **MIT** |
+
+> "I burned through enough tokens to know: **the best model for every task is different**. No single provider dominates. The future is routing, not choosing."
 
 ---
 
-## The Problem It Solves
+## The Apple Approach
 
-| Problem | How oh-my-unified Fixes It |
-|---------|---------------------------|
-| **"Task not found" bug** | Tasks live in SQLite, not in-memory Maps. If a DB row is lost, the reconstructor pulls from session data to auto-recover. |
-| **MCP underutilization** | The MCP Integration Bus auto-registers 14 servers with health checks. The Tool Use Enforcer ensures agents actually use them. |
-| **Primitive-only agents** | Agent context is enriched with available MCPs, skills, and project data before every invocation. No more blind agents. |
-| **One model for everything** | 5-model routing with capability scoring matches each task type to the right model. Reasoning to Ring 2.6, speed to DeepSeek V4 Flash, docs to MiniMax M2.5. |
-| **Session compaction kills context** | Compaction Context Injector preserves critical state across compact cycles. Directory Context Injector feeds AGENTS.md/README.md on every session start. |
-| **Duplicate agent work** | Anti-duplication cache with 60s TTL prevents parallel agents from searching the same thing. In-flight requests are deduplicated. |
+Apple doesn't sell products by listing specs. They sell **outcomes**.
+
+- You don't buy a chip. You buy **all-day battery life**.
+- You don't buy RAM. You buy **everything just works**.
+- You don't buy a camera. You buy **the best photo you've ever taken**.
+
+`oh-my-unified` is the same:
+
+| You Don't Get | You Get |
+|---------------|---------|
+| 15 agents | **The right agent, every time** |
+| 5-model routing | **No more "model unavailable" errors** |
+| SQLite persistence | **Your work is never lost** |
+| Confidence gates | **No more hallucinated code in production** |
+| Improvisation Loop | **Code that gets better with each iteration** |
+| Transparency log | **You always know why something happened** |
+| MCP auto-discovery | **Tools appear when you need them** |
 
 ---
 
-## Architecture
+## The Pipeline: Assess → Assemble → Improvise → Act
+
+Most AI plugins do one thing: send your prompt to a model and hope.
+
+**Hope is not a strategy.**
+
+`oh-my-unified` replaces hope with a four-phase pipeline that thinks before it acts, and improves until you're satisfied:
+
+<img src="img/pipeline-diagram.png" alt="Assess → Assemble → Improvise → Act pipeline" width="800" style="border-radius: 12px;">
+
+```
+                    KNOW NOTHING
+                        │
+                ┌───────▼───────┐
+                │   /assess     │  Phase 1: Requirements & Gaps
+                │  Confidence   │  Agents: Odin + Frigg + Mimir
+                │   Threshold   │  Model: Deep reasoning (Opus-class, Gemini Pro-class)
+                │     ≥ 6       │
+                └───────┬───────┘
+                        │
+                ┌───────▼───────┐
+                │  /assemble    │  Phase 2: Research & Architecture
+                │  Confidence   │  Agents: Vidar + Sif + Eir + Forseti
+                │   Threshold   │  Model: Balanced reasoning + speed (Sonnet-class, Qwen Plus-class)
+                │     ≥ 8       │
+                └───────┬───────┘
+                        │
+                ┌───────▼───────┐
+                │  /improvise   │  Phase 3: Critique & Refine ◄──┐
+                │  User must    │  Agents: Tyr + Heimdall + Mimir │
+                │  be satisfied │  Model: Deep reasoning (Opus-class, Gemini Pro-class)
+                └───────┬───────┘                                │
+                        │                                        │
+                ┌───────▼───────┐                                │
+                │    /act       │  Phase 4: Execute              │
+                │  Confidence   │  Agents: Njord + Thor + Hermod │
+                │   Threshold   │  Model: Fast code execution (DeepSeek V4 Flash, Codex-class)
+                │     ≥ 9       │                                │
+                └───────┬───────┘                                │
+                        │                                        │
+                ┌───────▼───────┐                                │
+                │   DELIVERY    │  Done. Ship it.                │
+                └───────────────┘                                │
+                                                                 │
+                ┌────────────────────────────────────────────────┘
+                │  Not satisfied? Loop back to /improvise
+                │  with feedback. Refine until it's right.
+                └────────────────────────────────────────────────
+```
+
+### Phase 1: Assessment (`/assess`)
+
+Before writing code, understand the problem. **Odin** delegates, **Frigg** performs gap analysis, and **Mimir** provides architectural advice. Confidence must reach ≥6 before proceeding.
+
+### Phase 2: Assembly (`/assemble`)
+
+Research the codebase, study documentation, and design the architecture. **Vidar** maps dependencies, **Sif** scans patterns, **Eir** looks up official docs, and **Forseti** deliberates on tradeoffs. Confidence must reach ≥8.
+
+### Phase 3: Improvisation (`/improvise`)
+
+**This is where oh-my-unified is different.** Before execution, **Tyr** performs adversarial review, **Heimdall** watches for quality issues, and **Mimir** refines the approach. The loop continues until **you** are satisfied — not until an arbitrary threshold is met.
+
+The Improvisation Loop (Ralph Loop) is an iterative refinement cycle. Each iteration produces better code, catches edge cases the plan missed, and incorporates your feedback. Strategy: `refine` (improve quality) or `verify` (confirm correctness). Max iterations configurable.
+
+### Phase 4: Action (`/act`)
+
+Execute the plan with confidence ≥9. **Njord** orchestrates, **Thor** builds, **Hermod** fixes, and **Freyr** designs. Every action is logged, every decision is recorded, every state change is persisted to SQLite.
+
+### The Full Pipeline (`/plan`)
+
+Run all phases sequentially with confidence gates. Only the conductor stays in the main session — every other agent gets deployed to a visible sub-session. Results are collected and synthesized into a single report.
+
+---
+
+## The Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │                        oh-my-unified                                 │
-│                                                                     │
+│                                                                      │
 │  ┌──────────────────────────────────────────────────────────────┐   │
-│  │                    Norse Pantheon Agents                      │   │
-│  │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐       │   │
-│  │  │ @Odin     │ │ @Njord   │ │ @Mimir   │ │ @Vidar   │       │   │
-│  │  │ Strategist│ │Executor  │ │Advisor   │ │Mapper    │       │   │
-│  │  └──────────┘ └──────────┘ └──────────┘ └──────────┘       │   │
-│  │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐       │   │
-│  │  │ @Thor    │ │@Forseti  │ │ @Frigg   │ │ @Tyr     │       │   │
-│  │  │ Builder  │ │Council   │ │ Analyst  │ │ Critic   │       │   │
-│  │  └──────────┘ └──────────┘ └──────────┘ └──────────┘       │   │
-│  │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐       │   │
-│  │  │ @Sif     │ │ @Eir     │ │ @Freyr   │ │ @Hermod  │       │   │
-│  │  │ Scout    │ │ Scholar  │ │ Artisan  │ │ Runner   │       │   │
-│  │  └──────────┘ └──────────┘ └──────────┘ └──────────┘       │   │
-│  │  ┌──────────┐ ┌──────────┐ ┌──────────┐                     │   │
-│  │  │@Heimdall │ │ @Magni   │ │ @Hod     │                     │   │
-│  │  │ Watcher  │ │Follower  │ │ Voter    │                     │   │
-│  │  └──────────┘ └──────────┘ └──────────┘                     │   │
+│  │                   5-Model Routing Engine                      │   │
+│  │                                                              │   │
+│  │  Deep reasoning ──→ Strategists, Critics, Advisors           │   │
+│  │  Balanced speed   ──→ Orchestrators, Analysts, Mappers       │   │
+│  │  Fast execution   ──→ Builders, Fixers, Followers            │   │
+│  │  Docs & design    ──→ Scholars, Designers, Observers         │   │
+│  │  Code exploration ──→ Scouts, Explorers                      │   │
 │  └──────────────────────────────────────────────────────────────┘   │
 │                              │                                      │
 │  ┌──────────────────────────────────────────────────────────────┐   │
-│  │                PersistentTaskEngine (SQLite)                  │   │
-│  │  ┌──────────────────┐ ┌──────────────────┐ ┌──────────────┐ │   │
-│  │  │  TaskRegistry     │ │  Completion      │ │Reconstructor │ │   │
-│  │  │  (SQLite-backed)  │ │  Detector        │ │(session.read)│ │   │
-│  │  └──────────────────┘ └──────────────────┘ └──────────────┘ │   │
+│  │              Tier 1: Foundation (Always On)                   │   │
+│  │  MetricsCollector · CircuitBreaker · CostOptimizer           │   │
 │  └──────────────────────────────────────────────────────────────┘   │
 │                              │                                      │
 │  ┌──────────────────────────────────────────────────────────────┐   │
-│  │                   MCP Integration Bus (14 servers)            │   │
-│  │  clawdi · gbrain · context-mode · code-review-graph · gitnexus│   │
-│  │  loom-mcp · openspace · context7 · exa · gh-grep · deepwiki  │   │
-│  │  sequential-thinking · agent-browser · websearch              │   │
-│  │  └─── Health checks every 30s ─── 3 tiers (built-in/project) │   │
+│  │              Tier 2: Intelligence (Learning)                  │   │
+│  │  LearningEngine · ModelPredictor · BenchmarkTracker          │   │
 │  └──────────────────────────────────────────────────────────────┘   │
 │                              │                                      │
 │  ┌──────────────────────────────────────────────────────────────┐   │
-│  │                  Workflow Pipeline                            │   │
-│  │  ┌───────┐   ┌──────────┐   ┌──────────┐   ┌───────┐       │   │
-│  │  │/assess│ → │/assemble │ → │/improvise│ → │ /act  │       │   │
-│  │  │ Conf≥6│   │  Conf≥8  │   │ User OK  │   │ Conf≥9│       │   │
-│  │  └───────┘   └──────────┘   └──────────┘   └───────┘       │   │
+│  │              Tier 3: Platform (Extensible)                    │   │
+│  │  PluginRegistry · SkillCodifier · SessionRouter              │   │
+│  │  IntegrationHub                                              │   │
 │  └──────────────────────────────────────────────────────────────┘   │
-│                                                                     │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ │
-│  │ 25 Hooks │ │Role Enf. │ │Anti-Dup  │ │Lazy Load │ │Kanban    │ │
-│  └──────────┘ └──────────┘ └──────────┘ └──────────┘ └──────────┘ │
-│                                                                     │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐               │
-│  │OpenClaw  │ │ Divoom   │ │Session   │ │TUI       │               │
-│  │Gateway   │ │ Pixoo-64 │ │Mux (tmux)│ │Sidebar   │               │
-│  └──────────┘ └──────────┘ └──────────┘ └──────────┘               │
+│                              │                                      │
+│  ┌──────────────────────────────────────────────────────────────┐   │
+│  │              Trust & Discovery                                │   │
+│  │  /diagnose · /capabilities · /onboarding · /log              │   │
+│  │  TransparencyLog (14 entry types, auto-trim at 1000)         │   │
+│  └──────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐                │
+│  │ 25+ Hooks    │ │ Role Enf.    │ │ Anti-Dup     │                │
+│  │              │ │              │ │ Cache (60s)  │                │
+│  └──────────────┘ └──────────────┘ └──────────────┘                │
+│                                                                      │
+│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐                │
+│  │ OpenClaw     │ │ Divoom       │ │ TUI Sidebar  │                │
+│  │ Gateway      │ │ Pixoo-64     │ │ (OpenTUI)    │                │
+│  └──────────────┘ └──────────────┘ └──────────────┘                │
+│                                                                      │
+│  ┌──────────────────────────────────────────────────────────────┐   │
+│  │              Dual-Runtime SQLite Shim                         │   │
+│  │  Bun runtime  → bun:sqlite (tests, CLI)                      │   │
+│  │  Node runtime → better-sqlite3 (OpenCode desktop)            │   │
+│  │  Auto-detects at module load. Zero config.                   │   │
+│  └──────────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Features
+## Meet the Norse Pantheon
 
-| Feature | Description |
-|---------|-------------|
-| ⚙️ **PersistentTaskEngine** | SQLite-backed task registry survives compaction and restart. Dual-path completion (event-driven + polling) never drops events. Auto-cleanup after configurable retention (default 7 days). |
-| 🧠 **Norse Pantheon Agents** | 9 core agents + 9 aliases = 18 specialized personas. Each has a role, capability profile, and model assignment. Deploy via `@AgentName` mentions. |
-| 🔌 **MCP Integration Bus** | Auto-discovers and registers 14 MCP servers with health checks every 30s. 3-tier system: built-in, project, and skill-embedded. Degraded servers are flagged; the bus keeps running. |
-| 🚦 **3-Phase Workflow** | `/assess` (confidence ≥6) → `/assemble` (confidence ≥8) → `/improvise` (user satisfied) → `/act` (confidence ≥9). Each phase uses a different model and agent set. |
-| 🧪 **Know Nothing Mode** | The plugin assumes ZERO context. It interviews, researches, and gathers information before acting. No silent assumptions. |
-| 🛡️ **Role Enforcement** | Every agent has a permission matrix (read/edit/delegate/research). Violations are blocked at runtime. Builders can't override strategy; critics can't edit files. |
-| 🔄 **Anti-Duplication** | In-flight cache deduplicates parallel agent work. Same query from 2 agents? First one runs, second gets cached result. Cache TTL: 60s. |
-| 🎯 **Confidence Gates** | No phase transition without sufficient confidence. Rejected phases return to previous phase with feedback. Each knowledge area scored independently. |
-| ⏳ **Lazy Loading** | All 15 components register at startup (strings only, zero token cost). They LOAD only when actually needed. Users can disable per session/project. |
-| 🔭 **System Observer** | 7-component health monitor (Plugin, Registry, MCP Bus, Engine, Tool Enforcer, Divoom, OpenClaw). States: Healthy, Degraded, Critical. Report via `/status`. |
-| 🧩 **25 Lifecycle Hooks** | 14 individual hooks + 11 synthesized hooks. Context injection, error recovery, model fallback, compaction preservation, auto-command detection. |
-| 🗳️ **Council System** | Multi-LLM deliberation with configurable strategies (first, majority, supermajority). Forseti convenes the council; Hod casts votes. |
-| 🖥️ **Session Multiplexer** | Tmux/Zellij session management for sub-agents. Configurable layout, main pane size, auto or manual type detection. |
-| 🎛️ **TUI Sidebar** | OpenTUI sidebar shows specialist-agent status, active/reusable task sessions. Real-time visibility into sub-agent work. |
-| 🏗️ **Hashline Edit** | MD5-based line hashing for stable, verifiable edits. Survives context shifts and model rotations. |
-| 🗂️ **Kanban Tracker** | Sequential workflow with dependency ordering. Agents execute in defined order; blockers are surfaced automatically. |
-| 🔧 **Configurable Presets** | 3 presets: `free` (exploration), `balanced` (daily work), `premium` (production). Override any agent's model, temperature, skills, or MCPs. |
+15 specialized agents. Each has a role, capability profile, and permission matrix. Mention any mid-conversation with `@AgentName`.
+
+<img src="img/pantheon-overview.png" alt="The Norse Pantheon — 15 specialized AI agents" width="800" style="border-radius: 12px;">
+
+### Primary Agents
+
+| Agent | Role | What It Does | Assign Models That Excel At |
+|-------|------|-------------|---------------------------|
+| **@Odin** | Chief Strategist | Plans, delegates, drives to completion. Does not stop halfway. | Deep reasoning, strategy |
+| **@Njord** | Orchestrator | Routes work, manages sessions, coordinates parallel execution. | Balanced reasoning + speed |
+| **@Mimir** | Advisor / Oracle | Deep analysis, architecture review, pattern recognition. | Deep reasoning, judgment |
+| **@Vidar** | Mapper / Codemap | Codebase mapping, dependency analysis, structural understanding. | Balanced reasoning + speed |
+| **@Thor** | Builder | Fast implementation. Give it a plan, it builds. | Fast code execution |
+| **@Forseti** | Deliberator / Council | Multi-model consensus, deliberation, conflict resolution. | Deep reasoning, judgment |
+| **@Frigg** | Analyst | Gap analysis, risk assessment, requirements validation. | Balanced reasoning + speed |
+| **@Tyr** | Critic / Reviewer | Adversarial review, quality gates, finds what others miss. | Deep reasoning, judgment |
+
+### Sub-Agents
+
+| Agent | Role | What It Does | Assign Models That Excel At |
+|-------|------|-------------|---------------------------|
+| **@Sif** | Scout / Explorer | Fast codebase scanning, pattern search, grep on steroids. | Fast models, large context |
+| **@Eir** | Scholar / Librarian | Documentation, research, official docs via Context7. | Documentation, analysis |
+| **@Freyr** | Artisan / Designer | UI/UX, design prototypes, huashu-design skill integration. | Creativity, visual thinking |
+| **@Hermod** | Runner / Fixer | Quick fixes, bug patches, iterative improvements. | Fast code execution |
+| **@Heimdall** | Watcher / Observer | System monitoring, health checks, quality observation. | Documentation, analysis |
+| **@Magni** | Follower | Executes follow-up tasks, handles cleanup. | Fast code execution |
+| **@Hod** | Voter / Councillor | Council voting, consensus building, decision support. | Documentation, analysis |
 
 ---
 
-## Meet the Norse Pantheon
+## Model Recommendations
 
-### Core Agents
+oh-my-unified doesn't force models on you. Assign whatever models you have access to. Here's what works:
 
-| Agent | Role | Capability Profile | Permissions | Delegation |
-|-------|------|-------------------|-------------|------------|
-| **@Odin** | Chief Strategist | Reasoning:9 Speed:5 Creative:7 | Read ✅ Edit ✅ Delegate ✅ Research ✅ | All sub-agents |
-| **@Njord** | Orchestrator | Reasoning:8 Speed:6 Creative:6 | Read ✅ Edit ❌ Delegate ✅ Research ✅ | All sub-agents |
-| **@Mimir** | Advisor / Oracle | Reasoning:10 Speed:4 Creative:5 | Read ✅ Edit ❌ Delegate ❌ Research ✅ | None |
-| **@Vidar** | Mapper / Codemap | Reasoning:8 Speed:5 Creative:4 | Read ✅ Edit ❌ Delegate ✅ Research ✅ | Sif, Eir |
-| **@Thor** | Builder | Reasoning:6 Speed:8 Creative:5 | Read ✅ Edit ✅ Delegate ❌ Research ✅ | None |
-| **@Forseti** | Deliberator / Council | Reasoning:8 Speed:3 Creative:8 | Read ✅ Edit ❌ Delegate ✅ (Hod only) Research ✅ | Hod |
-| **@Frigg** | Analyst | Reasoning:9 Speed:4 Creative:6 | Read ✅ Edit ❌ Delegate ✅ Research ✅ | Sif, Eir |
-| **@Tyr** | Critic / Reviewer | Reasoning:8 Speed:4 Creative:4 | Read ✅ Edit ❌ Delegate ❌ Research ✅ | None |
-| **@Sif** | Scout / Explorer | Reasoning:4 Speed:9 Creative:3 | Read ✅ Edit ❌ Delegate ❌ Research ✅ | None |
-| **@Eir** | Scholar / Librarian | Reasoning:5 Speed:7 Creative:4 | Read ✅ Edit ❌ Delegate ❌ Research ✅ | None |
-| **@Freyr** | Artisan / Designer | Reasoning:5 Speed:6 Creative:9 | Read ✅ Edit ✅ Delegate ✅ (Sif only) Research ✅ | Sif |
-| **@Hermod** | Runner / Fixer | Reasoning:5 Speed:9 Creative:3 | Read ✅ Edit ✅ Delegate ❌ Research ❌ | None |
-| **@Heimdall** | Watcher / Observer | Reasoning:4 Speed:6 Creative:5 | Read ✅ Edit ❌ Delegate ❌ Research ✅ | None |
-| **@Magni** | Follower | Reasoning:4 Speed:9 Creative:3 | Read ✅ Edit ✅ Delegate ❌ Research ❌ | None |
-| **@Hod** | Voter / Councillor | Reasoning:7 Speed:5 Creative:6 | Read ✅ Edit ❌ Delegate ❌ Research ✅ | None |
+| Agent Type | What It Needs | Good Candidates |
+|------------|---------------|-----------------|
+| **Strategists** (Odin, Mimir, Forseti, Tyr) | Deep reasoning, judgment | Opus-class, Gemini Pro-class, Ring 2.6 1T |
+| **Orchestrators** (Njord, Frigg, Vidar) | Balanced reasoning + speed | Sonnet-class, Qwen Plus-class |
+| **Builders** (Thor, Hermod, Magni) | Fast code execution | DeepSeek V4 Flash, Codex-class |
+| **Researchers** (Eir, Heimdall, Hod) | Documentation, analysis | MiniMax-class, fast reasoning models |
+| **Designers** (Freyr) | Creativity, visual thinking | Models strong at design/aesthetic |
+| **Explorers** (Sif) | Codebase scanning | Fast models with large context windows |
 
-### Alias Agents (Backward Compatible)
+> **Tip:** The plugin auto-discovers your available models. Configure per-agent models in your config file. The router will use your assignments and apply fallback chains automatically.
 
-| Alias | Maps To | Original Source |
-|-------|---------|-----------------|
-| `@orchestrator` | Odin | oh-my-openagent core |
-| `@sisyphus` | Hermod (runner) | oh-my-openagent executor |
-| `@oracle` | Mimir (advisor) | oh-my-openagent analyst |
-| `@librarian` | Eir (scholar) | oh-my-openagent researcher |
-| `@explorer` / `@explore` | Sif (scout) | oh-my-openagent explorer |
-| `@designer` | Freyr (artisan) | oh-my-openagent UI/UX |
-| `@fixer` | Hermod (runner) | oh-my-openagent fixer |
-| `@observer` | Heimdall (watcher) | oh-my-openagent monitor |
-| `@council` | Forseti | slim council convener |
-| `@councillor` | Hod | slim council voter |
-| `@metis` | Mimir (strategy variant) | oh-my-openagent strategy |
-| `@momus` | Tyr (adversarial variant) | oh-my-openagent critic |
-| `@atlas` | Vidar (architect variant) | oh-my-openagent architect |
-| `@hephaestus` | Thor (build variant) | oh-my-openagent builder |
-| `@prometheus` | Odin (planning variant) | oh-my-openagent planner |
+---
+
+## MCP Auto-Discovery
+
+oh-my-unified provides MCP tools by default. It auto-discovers your installed MCP servers and makes them available to agents — but only uses them when required. No wasted tokens, no unnecessary tool calls.
+
+The MCP Integration Bus:
+- **Auto-discovers** installed MCP servers at startup
+- **Health checks** every 30s — dead servers are gracefully removed
+- **Skill catalog** maps MCP capabilities to agent skills
+- **Context enrichment** injects relevant MCP context only when the task requires it
+
+Built-in MCPs include long-term memory, knowledge graph, context management, code analysis, and more. Remote MCPs (web search, GitHub code search, repository docs) are loaded on demand.
+
+---
+
+## Trust & Discovery
+
+**Black boxes are for prisons.** Every decision oh-my-unified makes is logged, queryable, and auditable.
+
+### `/diagnose` — System Health Check
+
+12 parallel checks: plugin bootstrap, agent registration, MCP connectivity, TUI status, interview engine, circuit breakers, plugin registry, integrations, and more. Results in <1 second.
+
+<img src="img/diagnose-output.png" alt="/diagnose command output" width="700" style="border-radius: 8px;">
+
+### `/capabilities` — What Can This Plugin Do?
+
+Dynamic capability listing grouped by category: agents, hooks, tools, MCPs, features. Pulls from registered feature counts — no stale documentation.
+
+### `/onboarding` — First Run Guide
+
+Interactive welcome menu with contextual guidance. Shows you what's installed, how to use it, and what to try first.
+
+### `/log` — Transparency Log
+
+The crown jewel. Every model route, agent selection, circuit breaker trip, feature trigger, error, warning, decision, plan phase, audit result, review verdict, security finding, learning application, prediction, and benchmark record — logged with timestamps, session IDs, and confidence scores.
+
+```
+/log              # Recent 20 entries
+/log recent 50    # Last 50 entries
+/log stats        # Statistics by type and session
+/log error        # All error entries
+/log model_routing # All model routing decisions
+```
+
+**14 entry types · Auto-trim at 1000 · Queryable by type, session, time, limit**
+
+<img src="img/transparency-log.png" alt="/log command output" width="700" style="border-radius: 8px;">
+
+---
+
+## Features
+
+### Tier 1: Foundation (Always On)
+
+| Feature | What It Does |
+|---------|-------------|
+| **MetricsCollector** | Tracks fallback triggers, model routing, review outcomes, security findings. Budget-aware with daily cost limits. |
+| **CircuitBreaker** | Fail gracefully, not silently. Each feature module has its own breaker with configurable thresholds and recovery timeouts. |
+| **CostOptimizer** | Model selection based on capability scoring. Routes reasoning tasks to Nemotron, speed tasks to DeepSeek, docs to MiniMax. |
+
+### Tier 2: Intelligence (Gets Smarter)
+
+| Feature | What It Does |
+|---------|-------------|
+| **LearningEngine** | Cross-session learning. Remembers what worked, what failed, what patterns emerged. Injects relevant lessons into new sessions. |
+| **ModelPredictor** | Predictive model selection. Learns which model wins which task type. Overrides routing when confidence > 70%. |
+| **BenchmarkTracker** | Performance regression tracking. Records latency, tokens, cost, quality per model. Spots regressions before they ship. |
+
+### Tier 3: Platform (Extensible)
+
+| Feature | What It Does |
+|---------|-------------|
+| **PluginRegistry** | Third-party feature registration. Hook points: `chat.message`, `tool.execute.before`, `tool.execute.after`. |
+| **SkillCodifier** | Turns your successful patterns into reusable skills. Threshold-based: codifies after N successful repetitions. |
+| **SessionRouter** | Multi-user session routing. Routes work to the right user, isolates contexts, manages concurrent sessions. |
+| **IntegrationHub** | External integrations: GitHub, Jira, Slack. Webhook-based, configurable per integration. |
+
+### Confidence Gates
+
+No phase transition without sufficient confidence. Each knowledge area (project structure, tech stack, requirements, constraints, risks, dependencies) scored independently. Rejected phases return to previous phase with feedback.
+
+| Source | Points per Area | Max |
+|--------|----------------|-----|
+| MCP data | +2 to +4 | 10 |
+| Sub-agent results | +2 to +3 | 10 |
+| User answers | +1 to +2 | 10 |
+
+### Anti-Duplication
+
+Same query from 2 agents? First one runs, second gets cached result. 60-second TTL. In-flight requests deduplicated. No wasted tokens.
+
+### Role Enforcement
+
+Every agent has a permission matrix (read/edit/delegate/research). Violations blocked at runtime. Builders can't override strategy. Critics can't edit files.
+
+### Dual-Runtime SQLite Shim
+
+The plugin works in both Bun (tests, CLI) and Node.js (OpenCode desktop) without configuration. At module load time, it detects the runtime and loads the appropriate SQLite driver:
+
+- **Bun runtime** → `bun:sqlite` (built-in, used for tests and CLI)
+- **Node.js runtime** → `better-sqlite3` (used for OpenCode desktop app)
+
+This fixes the crash that occurs when `better-sqlite3`'s native ABI doesn't match Electron's Node version — caught at instantiation time, not require time.
 
 ---
 
 ## Commands
 
-### Workflow Commands
+### Workflow Pipeline
 
-| Command | Description | Phase | Confidence Gate | Agents Deployed |
-|---------|-------------|-------|-----------------|-----------------|
-| `/assess` | Start requirements assessment | Assess | ≥6 | Odin + Frigg + Mimir |
-| `/assemble` | Deep research, architecture mapping | Assemble | ≥8 | Vidar + Sif + Eir + Forseti |
-| `/improvise` | Critique, review, refine approach | Improvise | User satisfied | Tyr + Heimdall + Mimir |
-| `/act` | Execute the approved plan | Act | ≥9 | Njord + Thor + Hermod + Freyr |
-| `/plan` | Full end-to-end workflow | All phases | Sequential gates | All agents sequentially |
-| `/synthesize` | Deploy all agents, synthesize report | Synthesis | N/A | All agents → one report |
+| Command | Description | Confidence Gate |
+|---------|-------------|-----------------|
+| `/assess` | Requirements assessment | ≥6 |
+| `/assemble` | Deep research & architecture | ≥8 |
+| `/improvise` | Critique & refine (loop until satisfied) | User satisfied |
+| `/act` | Execute the plan | ≥9 |
+| `/plan` | Full end-to-end workflow | Sequential gates |
+| `/synthesize` | Deploy all agents, one report | N/A |
 
-### Utility Commands
+### Structured Planning & Audit
 
 | Command | Description |
 |---------|-------------|
-| `/status` | Show system health (7-component monitor) |
-| `/om-plan` | 4-phase structured planning (from oh-my-agents-synthesis) |
-| `/om-audit` | Multi-perspective code audit |
-| `/start-work` | Initialize session with Prometheus plan |
+| `/om-plan` | 4-phase structured planning (assess→assemble→act→improvise) with confidence scores |
+| `/om-audit` | Multi-perspective code audit (architecture, quality, security, UX) with severity-weighted scoring |
+
+### Trust & Discovery
+
+| Command | Description |
+|---------|-------------|
+| `/diagnose` | 12 parallel system health checks |
+| `/capabilities` | Dynamic capability listing |
+| `/onboarding` | First-run interactive guide |
+| `/log` | Transparency log query (recent, stats, by type, by session) |
+| `/status` | System Observer health report (7 components) |
 
 ### Agent Mentions
-
-Mention any agent mid-conversation with `@AgentName`:
 
 ```
 @Odin analyze this project structure
 @Sif search for authentication patterns
 @Tyr review my approach
 @Thor implement the fix
+@Freyr design a landing page
 ```
+
+<img src="img/agents-command.png" alt="/agents command output" width="700" style="border-radius: 8px;">
 
 ---
 
 ## Quick Start
 
-### Prerequisites
-
-- OpenCode (any version)
-- Node.js ≥ 18 or Bun
-
 ### Install
 
 ```bash
-bunx oh-my-unified@latest install
+npm install -g oh-my-unified
 ```
 
-This registers oh-my-unified in your `opencode.json` plugins array, installs the TUI sidebar in `tui.json`, and warms the plugin cache.
+Or add to your `opencode.json`:
+
+```json
+{
+  "plugin": ["oh-my-unified"]
+}
+```
 
 ### First Run
 
-```bash
-# Start your work session
-/start-work
-
-# Or manually start the workflow
-/assess  # Phase 1: understand the project
+```
+/plan           # Full pipeline: assess → assemble → improvise → act
+/assess         # Phase 1: understand the project
 ```
 
 ### Configuration
 
-Create `oh-my-unified.config.json` in your project root:
-
-```json
-{
-  "$schema": "https://raw.githubusercontent.com/lavyatandel/oh-my-unified/main/config.schema.json",
-  "preset": "balanced",
-  "agents": {
-    "thor": { "model": "openai/gpt-5.4-mini" },
-    "mimir": { "model": "openai/gpt-5.5", "variant": "max" }
-  },
-  "disabled_agents": ["heimdall"],
-  "persistence": {
-    "dbPath": ".oh-my-unified/tasks.db",
-    "taskRetentionDays": 14
-  },
-  "mcpBus": {
-    "enabled": true,
-    "healthCheckIntervalMs": 60000
-  }
-}
-```
-
----
-
-## Configuration Reference
-
-### Top-Level Options
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `preset` | `free` `balanced` `premium` | — | Model quality preset |
-| `agents` | `Record<string, AgentOverride>` | `{}` | Per-agent overrides |
-| `disabled_agents` | `string[]` | `[]` | Agents to disable |
-| `disabled_mcps` | `string[]` | `[]` | MCPs to disable |
-| `disabled_skills` | `string[]` | `[]` | Skills to disable |
-| `disabled_hooks` | `string[]` | `[]` | Hooks to disable |
-| `multiplexer` | object | `{type: "none"}` | Tmux/Zellij session config |
-| `council` | object | `{enabled: false}` | Multi-LLM deliberation config |
-| `interview` | object | `{maxQuestions: 2}` | Interview engine config |
-| `persistence` | object | `{dbPath: ":memory:"}` | TaskRegistry SQLite config |
-| `mcpBus` | object | `{enabled: true}` | MCP bus health check config |
-| `workflow` | object | `{defaultPhase: "assess"}` | Workflow phase defaults |
-| `background` | object | `{maxConcurrentTasks: 5}` | Background task engine |
-| `divoom` | object | `{enabled: false}` | Pixoo-64 display config |
-| `openclaw` | object | `{enabled: false}` | Discord/Telegram gateway |
-
-### Presets
-
-| Preset | Tier | Use Case |
-|--------|------|----------|
-| `free` | Free models only | Exploration, learning, quick experiments |
-| `balanced` | Mix of free + paid | Daily development work |
-| `premium` | Best available models | Production, critical, high-stakes tasks |
-
-### Agent Override Schema
-
-```json
-{
-  "agentName": {
-    "model": "openai/gpt-5.5",
-    "variant": "max",
-    "temperature": 0.1,
-    "skills": ["*"],
-    "mcps": ["*", "!context7"],
-    "prompt": "Custom system prompt...",
-    "displayName": "@CustomName"
-  }
-}
-```
-
-### Presets Configuration
-
-Define custom presets:
-
-```json
-{
-  "presets": {
-    "my-preset": {
-      "odin": { "model": "openai/gpt-5.5", "variant": "max" },
-      "sif": { "model": "openai/gpt-5.4-mini" },
-      "thor": { "model": "openai/gpt-5.5", "temperature": 0.3 }
-    }
-  },
-  "preset": "my-preset"
-}
-```
-
----
-
-## Workflow Pipeline
-
-### Phase-by-Phase Breakdown
-
-```
-                          KNOW NOTHING
-                              │
-                      ┌───────▼───────┐
-                      │   /assess     │  Phase 1
-                      │  Confidence   │  Conductor: @Odin
-                      │   Threshold   │   → Frigg (analysis)
-                      │     ≥ 6       │   → Mimir (validation)
-                      └───────┬───────┘
-                              │
-                      ┌───────▼───────┐
-                      │  /assemble    │  Phase 2
-                      │  Confidence   │  Conductor: @Odin/@Njord
-                      │   Threshold   │   → Vidar (codemap)
-                      │     ≥ 8       │   → Sif (code search)
-                      └───────┬───────┤   → Eir (docs lookup)
-                              │       │   → Forseti (council)
-                      ┌───────▼───────┐
-                      │  /improvise   │  Phase 3
-                      │  User must    │  Conductor: @Odin/@Tyr
-                      │  be satisfied │   → Tyr (review)
-                      └───────┬───────┤   → Heimdall (checks)
-                              │       │   → Mimir (validation)
-                      ┌───────▼───────┐
-                      │    /act       │  Phase 4
-                      │  Confidence   │  Conductor: @Njord
-                      │   Threshold   │   → Thor (build)
-                      │     ≥ 9       │   → Hermod (fixes)
-                      └───────┬───────┤   → Freyr (UI)
-                              │
-                      ┌───────▼───────┐
-                      │   DELIVERY    │  Done.
-                      └───────────────┘
-```
-
-### Confidence Calculation
-
-Each knowledge area (project structure, tech stack, requirements, constraints, risks, dependencies) starts at 0. As information is gathered:
-
-- **MCP data**: +2 to +4 per area
-- **Sub-agent results**: +2 to +3 per area
-- **User answers**: +1 to +2 per answer
-- **Max per area**: 10
-
-Overall confidence = average across all areas.
-
-If a phase is **rejected**, the pipeline returns to the previous phase with feedback, creating a tight feedback loop.
-
----
-
-## Model Routing
-
-### Capability-Based Routing
-
-Each agent has a capability profile across 4 dimensions. The router calculates weighted Euclidean distance to find the best model match.
-
-| Agent | Reasoning | Speed | Creativity | Context Size |
-|-------|-----------|-------|------------|-------------|
-| Odin | 9 | 5 | 7 | Large |
-| Njord | 8 | 6 | 6 | Large |
-| Mimir | 10 | 4 | 5 | Large |
-| Vidar | 8 | 5 | 4 | X-Large |
-| Thor | 6 | 8 | 5 | Large |
-| Forseti | 8 | 3 | 8 | Large |
-| Frigg | 9 | 4 | 6 | Large |
-| Tyr | 8 | 4 | 4 | Medium |
-| Sif | 4 | 9 | 3 | Medium |
-| Eir | 5 | 7 | 4 | Medium |
-| Freyr | 5 | 6 | 9 | Medium |
-| Hermod | 5 | 9 | 3 | Medium |
-| Heimdall | 4 | 6 | 5 | Medium |
-| Magni | 4 | 9 | 3 | Small |
-| Hod | 7 | 5 | 6 | Medium |
-
-### Routing Weights
-
-- **Reasoning agents** (reasoning > 7): 50% reasoning, 20% speed, 30% creativity
-- **Speed agents** (speed > 7): 20% reasoning, 60% speed, 20% creativity
-- **Balanced**: 33% each dimension
-
-### Fallback Chains
-
-Every agent has a fallback chain (primary → fallback1 → fallback2). If the primary model is unavailable, the router tries each fallback in order. If all fail, the user is notified.
-
-### LOOM Preset (Free Tier)
-
-| Agent | Model | Variant |
-|-------|-------|---------|
-| Odin | `opencode/ring-2.6-1t-free` | max |
-| Mimir | `opencode/nemotron-3-super-free` | max |
-| Eir | `opencode/minimax-m2.5-free` | medium |
-| Sif | `opencode/big-pickle` | default |
-| Freyr | `opencode/minimax-m2.5-free` | medium |
-| Hermod | `opencode/deepseek-v4-flash-free` | max |
-| Heimdall | `opencode/minimax-m2.5-free` | default |
-| Forseti | `opencode/nemotron-3-super-free` | max |
-
----
-
-## System Observer
-
-The System Observer monitors 7 components with health checks:
-
-| Component | What It Checks | Frequency |
-|-----------|---------------|-----------|
-| Plugin Bootstrap | Is the plugin loaded? | On startup |
-| TaskRegistry | Can we read/write SQLite? | Every 30s |
-| MCP Bus | Are MCP servers responding? | Every 30s |
-| PersistentTaskEngine | Are tasks being tracked? | Every 30s |
-| ToolUseEnforcer | Is it active? | Every 30s |
-| Divoom | Is the display connected? | Every 30s |
-| OpenClaw | Are gateways active? | Every 30s |
-
-### Health States
-
-| State | Meaning |
-|-------|---------|
-| 🟢 **Healthy** | All components operational |
-| 🟡 **Degraded** | Non-critical component failed (Divoom, OpenClaw) |
-| 🔴 **Critical** | Core component failed (TaskRegistry, Engine) |
-
-View health status at any time with `/status`.
-
----
-
-## MCP Bus — Server Inventory
-
-The MCP Integration Bus auto-registers and manages these servers:
-
-| Server | Package | Tier |
-|--------|---------|------|
-| clawdi | `@opencode-ai/clawdi-mcp` | Built-in |
-| gbrain | `gbrain-mcp` | Built-in |
-| context-mode | `@opencode-ai/context-mode-mcp` | Built-in |
-| code-review-graph | `code-review-graph-mcp` | Built-in |
-| gitnexus | `gitnexus-mcp` | Built-in |
-| loom-mcp | `@opencode-ai/loom-mcp` | Built-in |
-| openspace | `@opencode-ai/openspace-mcp` | Built-in |
-| context7 | `@opencode-ai/context7-mcp` | Built-in |
-| exa/websearch | `@opencode-ai/exa-mcp` | Built-in |
-| gh-grep | `@opencode-ai/gh-grep-mcp` | Built-in |
-| deepwiki | `@opencode-ai/deepwiki-mcp` | Built-in |
-| sequential-thinking | `@opencode-ai/sequential-thinking-mcp` | Built-in |
-| agent-browser | `@opencode-ai/agent-browser-mcp` | Built-in |
-
-Additionally, project-specific MCPs from `opencode.json` and skill-embedded MCPs are auto-discovered at runtime.
+Configure your models and agents through the plugin's config file. The schema supports per-agent model overrides, disabled agents, persistence settings, and MCP bus configuration.
 
 ---
 
 ## Hook System
 
-### Individual Hooks (14 total)
+25+ lifecycle hooks across two tiers:
+
+### Individual Hooks (14)
 
 | Hook | Purpose |
 |------|---------|
 | Background Notification | Routes session events to BackgroundManager |
 | Model Fallback | Intercepts model failures, tries fallback chain |
 | Phase Reminder | Appends workflow phase as system reminder |
-| JSON Error Recovery | 6-pass JSON repair for malformed tool responses |
+| JSON Error Recovery | 6-pass JSON repair for malformed responses |
 | Edit Error Recovery | 10 recovery patterns for failed edits |
 | Compaction Context | Preserves context across session compactions |
-| Agent Usage Reminder | Nudges specialist agent use after N primitive turns |
+| Agent Usage Reminder | Nudges specialist agents after N primitive turns |
 | Directory Context | Injects AGENTS.md/README.md at session start |
-| Auto Command Detector | Detects intent and triggers matching command |
-| Agent Picker | Routes task type to best-matching agent |
-| Todo Continuation | Continues unfinished tasks across session boundaries |
-| Om-Plan | 4-phase structured planning command |
-| Om-Audit | Multi-perspective code audit command |
+| Auto Command Detector | Detects intent, triggers matching command |
+| Todo Continuation | Continues unfinished tasks across sessions |
 | Post-Tool Nudge | Suggests MCP/skills after tool use |
+| Om-Plan | 4-phase structured planning |
+| Om-Audit | Multi-perspective code audit |
+| Proactive Fallback | Preemptive model switching on error rates |
 
-### Synthesized Hooks (11 total)
+### Synthesized Hooks (11)
 
-| Hook | Source | Purpose |
-|------|--------|---------|
-| Context Window Monitor | openagent | Warns when approaching context limit |
-| File Write Guard | openagent | Warns when using bash instead of Read |
-| Overwrite Protection | openagent | Prevents overwriting unread files |
-| Task Reminder | openagent | Reminds about task tools after N non-task turns |
-| Model Selection | openagent | Routes agents to compatible models |
-| Error Recovery | both | 9 error patterns with suggestions |
-| WebFetch Guard | openagent | Prevents redirect loops |
-| Diff Enhancer | openagent | Captures before/after diffs on writes |
-| Empty Response Detector | openagent | Detects silent task failures |
-| Comment Checker | openagent | CLI-based comment validation scaffold |
-| Fsync Warning | openagent | Fsync skip tracking scaffold |
+| Hook | Purpose |
+|------|---------|
+| Context Window Monitor | Warns near context limits |
+| File Write Guard | Warns on bash vs Read |
+| Overwrite Protection | Prevents overwriting unread files |
+| Task Reminder | Reminds about task tools |
+| Model Selection | Routes to compatible models |
+| Error Recovery | 9 error patterns with suggestions |
+| WebFetch Guard | Prevents redirect loops |
+| Diff Enhancer | Captures before/after diffs |
+| Empty Response Detector | Detects silent failures |
+| Comment Checker | Blocks AI slop comments |
+| Fsync Warning | Tracks fsync skips |
 
 ---
-
-## Origin & Credits
-
-oh-my-unified is a **synthesized** plugin, built by studying the patterns of its parent plugins and adapting them, not copying code.
-
-| Source | What We Took | How We Changed It |
-|--------|-------------|-------------------|
-| [oh-my-openagent](https://github.com/code-yeongyu/oh-my-openagent) | Background agents, Team Mode, 59 hooks, OpenClaw, Boulder State, Hashline Edit | Simplified to SQLite-backed, renamed to Norse pantheon, added role enforcement |
-| [oh-my-opencode-slim](https://github.com/alvinunreal/oh-my-opencode-slim) | Orchestrator pattern, Interview Engine, Council System, TUI Sidebar, Session Multiplexer | Extended with confidence gates, capability scoring, anti-duplication |
-
-Both parent plugins are remarkable pieces of engineering. oh-my-unified stands on their shoulders.
 
 <div align="center">
 
 ---
 
-**Built by [@lavyatandel](https://github.com/lavyatandel)** · Inspired by the Sisyphus ecosystem
+**Built by [@lavyatandel](https://github.com/lavyatandel)**
 
-[![Discord](https://img.shields.io/badge/Discord-Join-5865F2?style=flat-square&logo=discord&labelColor=1a1a2e)](https://discord.gg/PUwSMR9XNk)
-[![GitHub](https://img.shields.io/badge/Github-oh--my--unified-1a1a2e?style=flat-square&logo=github&labelColor=1a1a2e)](https://github.com/lavyatandel/oh-my-unified)
+[![Discord](https://img.shields.io/badge/Discord-Join-5865F2?style=for-the-badge&logo=discord&labelColor=1a1a2e)](https://discord.gg/PUwSMR9XNk)
+[![GitHub](https://img.shields.io/badge/Github-oh--my--unified-1a1a2e?style=for-the-badge&logo=github&labelColor=1a1a2e)](https://github.com/lavyatandel/oh-my-unified)
 
 **MIT License** · 2026
 

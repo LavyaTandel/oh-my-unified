@@ -1,4 +1,4 @@
-import { Database } from 'bun:sqlite';
+import { Database } from '../utils/sqlite.js';
 import type { TaskRecord, TaskMessage } from './types';
 
 type TaskStatus = TaskRecord['status'];
@@ -126,7 +126,7 @@ export class TaskRegistry {
 
   getTask(id: string): TaskRecord | null {
     const row = this.db
-      .prepare<DbTaskRow, { $id: string }>('SELECT * FROM tasks WHERE id = $id')
+      .prepare<DbTaskRow>('SELECT * FROM tasks WHERE id = $id')
       .get({ $id: id });
 
     return row ? rowToTask(row) : null;
@@ -134,7 +134,7 @@ export class TaskRegistry {
 
   getTaskBySession(sessionId: string): TaskRecord | null {
     const row = this.db
-      .prepare<DbTaskRow, { $sessionId: string }>(
+      .prepare<DbTaskRow>(
         'SELECT * FROM tasks WHERE session_id = $sessionId LIMIT 1',
       )
       .get({ $sessionId: sessionId });
@@ -189,7 +189,7 @@ export class TaskRegistry {
 
   listTasksByParent(parentSessionId: string): TaskRecord[] {
     const rows = this.db
-      .prepare<DbTaskRow, { $parentSessionId: string }>(
+      .prepare<DbTaskRow>(
         'SELECT * FROM tasks WHERE parent_session_id = $parentSessionId ORDER BY created_at ASC',
       )
       .all({ $parentSessionId: parentSessionId });
@@ -199,7 +199,7 @@ export class TaskRegistry {
 
   listTasksByStatus(status: TaskStatus): TaskRecord[] {
     const rows = this.db
-      .prepare<DbTaskRow, { $status: string }>(
+      .prepare<DbTaskRow>(
         'SELECT * FROM tasks WHERE status = $status ORDER BY created_at DESC',
       )
       .all({ $status: status });
@@ -209,7 +209,7 @@ export class TaskRegistry {
 
   listRunningTasks(): TaskRecord[] {
     const rows = this.db
-      .prepare<DbTaskRow, []>(
+      .prepare<DbTaskRow>(
         "SELECT * FROM tasks WHERE status IN ('pending', 'running') ORDER BY created_at ASC",
       )
       .all();
@@ -241,7 +241,7 @@ export class TaskRegistry {
 
   getMessages(taskId: string): TaskMessage[] {
     const rows = this.db
-      .prepare<DbMessageRow, { $taskId: string }>(
+      .prepare<DbMessageRow>(
         'SELECT id, task_id, role, content, timestamp FROM task_messages WHERE task_id = $taskId ORDER BY timestamp ASC',
       )
       .all({ $taskId: taskId });
@@ -257,13 +257,13 @@ export class TaskRegistry {
 
   getStats(): { total: number; byStatus: Record<string, number> } {
     const row = this.db
-      .prepare<{ total: number }, []>(
+      .prepare<{ total: number }>(
         'SELECT COUNT(*) as total FROM tasks',
       )
       .get() ?? { total: 0 };
 
     const statusRows = this.db
-      .prepare<{ status: string; count: number }, []>(
+      .prepare<{ status: string; count: number }>(
         'SELECT status, COUNT(*) as count FROM tasks GROUP BY status',
       )
       .all();

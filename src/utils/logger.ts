@@ -9,20 +9,19 @@ let logger: {
 
 export function initLogger(sessionId: string) {
   const prefix = `[oh-my-unified:${sessionId}]`;
+  const debug = process.env.DEBUG?.includes('oh-my-unified');
   logger = {
     info: (msg: string, meta?: Record<string, unknown>) => {
-      console.log(`${prefix} INFO: ${msg}`, meta || '');
+      if (debug) process.stderr.write(`${prefix} INFO: ${msg} ${JSON.stringify(meta || '')}\n`);
     },
     warn: (msg: string, meta?: Record<string, unknown>) => {
-      console.warn(`${prefix} WARN: ${msg}`, meta || '');
+      process.stderr.write(`${prefix} WARN: ${msg} ${JSON.stringify(meta || '')}\n`);
     },
     error: (msg: string, meta?: Record<string, unknown>) => {
-      console.error(`${prefix} ERROR: ${msg}`, meta || '');
+      process.stderr.write(`${prefix} ERROR: ${msg} ${JSON.stringify(meta || '')}\n`);
     },
     debug: (msg: string, meta?: Record<string, unknown>) => {
-      if (process.env.DEBUG?.includes('oh-my-unified')) {
-        console.debug(`${prefix} DEBUG: ${msg}`, meta || '');
-      }
+      if (debug) process.stderr.write(`${prefix} DEBUG: ${msg} ${JSON.stringify(meta || '')}\n`);
     },
   };
 }

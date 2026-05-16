@@ -198,7 +198,7 @@ export class PersistentTaskEngine {
    *
    * NEVER drops events. Always defers if too early.
    */
-  onSessionIdle(taskId: string, sessionId: string, elapsedMs: number): 'deferred' | 'completed' | 'still-running' {
+  onSessionIdle(taskId: string, sessionId: string, elapsedMs: number): 'deferred' | 'coalesced' | 'completed' | 'still-running' {
     if (this._shutdown) return 'still-running';
     return this.detector.onSessionIdle(taskId, sessionId, elapsedMs);
   }

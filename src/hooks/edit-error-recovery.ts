@@ -187,7 +187,7 @@ export function createEditErrorRecoveryHook(
   }
 
   return {
-    'oh-my-unified.tool.after': handleToolAfter,
+    'tool.after': handleToolAfter,
     suggest,
   };
 }

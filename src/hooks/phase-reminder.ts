@@ -86,6 +86,6 @@ export function createPhaseReminderHook(
   return {
     setPhase,
     getPhaseLabel: () => getPhaseLabel(cfg.phase),
-    'oh-my-unified.message.before': handleMessageBefore,
+    'message.before': handleMessageBefore,
   };
 }

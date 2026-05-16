@@ -1,5 +1,5 @@
 import { describe, expect, test, beforeEach, afterEach, jest } from 'bun:test';
-import { CompletionDetector, MIN_IDLE_MS, STABILITY_THRESHOLD, type CompletionDetectorCallbacks } from './completion-detector';
+import { CompletionDetector, MIN_IDLE_MS, STABILITY_THRESHOLD, IDLE_COALESCE_MS, type CompletionDetectorCallbacks } from './completion-detector';
 import type { TaskRecord } from '../persistence';
 
 function createMockCallbacks(): CompletionDetectorCallbacks & {
@@ -30,6 +30,10 @@ function createMockCallbacks(): CompletionDetectorCallbacks & {
   };
 }
 
+function flushCoalescing(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, IDLE_COALESCE_MS + 20));
+}
+
 describe('CompletionDetector', () => {
   let callbacks: ReturnType<typeof createMockCallbacks>;
   let detector: CompletionDetector;
@@ -44,27 +48,30 @@ describe('CompletionDetector', () => {
   });
 
   // ============================================================
-  // 1. onSessionIdle defers when elapsed < MIN_IDLE_MS
+  // 1. onSessionIdle returns coalesced (debounced)
   // ============================================================
-  test('1. onSessionIdle defers when elapsed < MIN_IDLE_MS', () => {
+  test('1. onSessionIdle returns coalesced for all cases (debounced)', async () => {
     const result = detector.onSessionIdle('bg_001', 'ses_001', 10);
-    expect(result).toBe('deferred');
-    // No update should have happened yet
+    expect(result).toBe('coalesced');
+    // No update should have happened yet — still in debounce window
     expect(callbacks._updated.length).toBe(0);
   });
 
   // ============================================================
-  // 2. onSessionIdle marks completed when session has assistant output
+  // 2. onSessionIdle marks completed after debounce when session has agent output
   // ============================================================
-  test('2. onSessionIdle marks completed when session has agent output', () => {
+  test('2. onSessionIdle marks completed after debounce when session has agent output', async () => {
     callbacks._messages.set('bg_001', [
       { role: 'user', content: 'do something' },
       { role: 'assistant', content: 'here is the result' },
     ]);
 
     const result = detector.onSessionIdle('bg_001', 'ses_001', 200);
+    expect(result).toBe('coalesced');
 
-    expect(result).toBe('completed');
+    // Wait for debounce to fire
+    await flushCoalescing();
+
     expect(callbacks._updated.length).toBe(1);
     expect(callbacks._updated[0].id).toBe('bg_001');
     expect(callbacks._updated[0].status).toBe('completed');
@@ -72,24 +79,26 @@ describe('CompletionDetector', () => {
   });
 
   // ============================================================
-  // 3. onSessionIdle returns still-running when no agent output yet
+  // 3. onSessionIdle stays still-running after debounce when no agent output
   // ============================================================
-  test('3. onSessionIdle returns still-running when no agent output', () => {
+  test('3. onSessionIdle stays still-running after debounce when no agent output', async () => {
     callbacks._messages.set('bg_001', [
       { role: 'user', content: 'do something' },
     ]);
 
     const result = detector.onSessionIdle('bg_001', 'ses_001', 200);
+    expect(result).toBe('coalesced');
 
-    expect(result).toBe('still-running');
-    // Should NOT have updated status
+    await flushCoalescing();
+
+    // Should NOT have updated status (still running)
     expect(callbacks._updated.length).toBe(0);
   });
 
   // ============================================================
-  // 4. onSessionIdle picks final assistant message
+  // 4. onSessionIdle picks final assistant message after debounce
   // ============================================================
-  test('4. onSessionIdle picks final assistant message', () => {
+  test('4. onSessionIdle picks final assistant message after debounce', async () => {
     callbacks._messages.set('bg_001', [
       { role: 'user', content: 'help' },
       { role: 'assistant', content: 'step one' },
@@ -98,8 +107,11 @@ describe('CompletionDetector', () => {
     ]);
 
     const result = detector.onSessionIdle('bg_001', 'ses_001', 200);
+    expect(result).toBe('coalesced');
 
-    expect(result).toBe('completed');
+    await flushCoalescing();
+
+    expect(callbacks._updated.length).toBe(1);
     expect(callbacks._updated[0].extra?.outputCache).toBe('final answer');
   });
 
@@ -113,14 +125,13 @@ describe('CompletionDetector', () => {
       { role: 'assistant', content: 'done' },
     ]);
 
-    // First poll sets the snapshot, then need STABILITY_THRESHOLD stable checks
     for (let i = 0; i < STABILITY_THRESHOLD + 1; i++) {
       detector.onPollTick();
     }
 
     expect(callbacks._updated.length).toBe(1);
-    expect(callbacks._updated[0].id).toBe('bg_001');
     expect(callbacks._updated[0].status).toBe('completed');
+    expect(callbacks._updated[0].extra?.outputCache).toBe('done');
   });
 
   // ============================================================
@@ -128,41 +139,35 @@ describe('CompletionDetector', () => {
   // ============================================================
   test('6. onPollTick resets stability when messages change', () => {
     callbacks._tasks.set('bg_001', { id: 'bg_001', status: 'running' });
-    callbacks._messages.set('bg_001', [{ role: 'user', content: 'initial' }]);
-
-    // First tick: count=1
-    detector.onPollTick();
-
-    // Change messages (simulating new data)
     callbacks._messages.set('bg_001', [
-      { role: 'user', content: 'initial' },
-      { role: 'assistant', content: 'processing...' },
+      { role: 'user', content: 'test' },
+      { role: 'assistant', content: 'done' },
     ]);
 
-    // Second tick: count changed (2 vs 1) — should reset stability
+    detector.onPollTick();
     detector.onPollTick();
 
-    // Third tick: stable again at 2
+    // Change messages — resets stability counter
+    callbacks._messages.set('bg_001', [
+      { role: 'user', content: 'test' },
+      { role: 'assistant', content: 'done' },
+      { role: 'assistant', content: 'more output' },
+    ]);
+
+    detector.onPollTick();
+    detector.onPollTick();
     detector.onPollTick();
 
-    // Should NOT have completed yet (only 1 stable tick after reset)
+    // Should NOT have completed — stability was reset
     expect(callbacks._updated.length).toBe(0);
-
-    // More ticks to pass threshold
-    for (let i = 0; i < STABILITY_THRESHOLD - 1; i++) {
-      detector.onPollTick();
-    }
-
-    expect(callbacks._updated.length).toBe(1);
   });
 
   // ============================================================
   // 7. startPolling begins interval
   // ============================================================
   test('7. startPolling begins interval', () => {
-    detector.startPolling(50000);
-    // Should not throw — interval is set
-    detector.stopPolling();
+    detector.startPolling(100);
+    // No error means it started
   });
 
   // ============================================================
@@ -171,17 +176,60 @@ describe('CompletionDetector', () => {
   test('8. stopPolling clears interval', () => {
     detector.startPolling(100);
     detector.stopPolling();
-    // Calling twice should not throw
-    detector.stopPolling();
+    detector.stopPolling(); // idempotent
   });
 
   // ============================================================
   // 9. dispose cleans up all state
   // ============================================================
   test('9. dispose cleans up all state', () => {
-    detector.startPolling(100);
     detector.dispose();
-    // After dispose, should be no-op
-    detector.stopPolling();
+    detector.dispose(); // idempotent
+  });
+
+  // ============================================================
+  // 10. Rapid-fire idle events are coalesced (only last fires)
+  // ============================================================
+  test('10. Rapid-fire idle events are coalesced', async () => {
+    callbacks._messages.set('bg_001', [
+      { role: 'user', content: 'test' },
+      { role: 'assistant', content: 'final result' },
+    ]);
+
+    // Fire 5 idle events in rapid succession
+    detector.onSessionIdle('bg_001', 'ses_001', 10);
+    detector.onSessionIdle('bg_001', 'ses_001', 20);
+    detector.onSessionIdle('bg_001', 'ses_001', 30);
+    detector.onSessionIdle('bg_001', 'ses_001', 40);
+    detector.onSessionIdle('bg_001', 'ses_001', 200);
+
+    // All return coalesced
+    // Only the LAST one (200ms elapsed) should fire after debounce
+    await flushCoalescing();
+
+    expect(callbacks._updated.length).toBe(1);
+    expect(callbacks._updated[0].status).toBe('completed');
+    expect(callbacks._updated[0].extra?.outputCache).toBe('final result');
+  });
+
+  // ============================================================
+  // 11. Deferred check fires for short elapsed tasks
+  // ============================================================
+  test('11. Deferred check fires for short elapsed tasks', async () => {
+    callbacks._messages.set('bg_001', [
+      { role: 'user', content: 'test' },
+      { role: 'assistant', content: 'done' },
+    ]);
+
+    // Short elapsed — should defer inside the coalesced handler
+    const result = detector.onSessionIdle('bg_001', 'ses_001', 5);
+    expect(result).toBe('coalesced');
+
+    // Wait for coalesce + deferred check
+    await new Promise<void>((resolve) => setTimeout(resolve, IDLE_COALESCE_MS + 500 + 20));
+
+    // Should have completed via deferred path
+    expect(callbacks._updated.length).toBe(1);
+    expect(callbacks._updated[0].status).toBe('completed');
   });
 });

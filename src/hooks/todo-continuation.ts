@@ -205,8 +205,8 @@ export function createTodoContinuationHook(
     updateTodos,
     clearTodos,
     getTodos,
-    'oh-my-unified.session.start': handleSessionStart,
-    'oh-my-unified.session.end': handleSessionEnd,
-    'oh-my-unified.todo.updated': handleTodoUpdated,
+    'session.start': handleSessionStart,
+    'session.end': handleSessionEnd,
+    'todo.updated': handleTodoUpdated,
   };
 }

@@ -11,6 +11,7 @@ import {
   SUBAGENT_NAMES,
 } from '../config';
 import { getAgentMcpList } from '../config/agent-mcps';
+import type { McpSkillCatalog } from '../features/tool-use-enforcer/mcp-skill-catalog';
 
 import { createCouncilAgent } from './council';
 import { createCouncillorAgent } from './councillor';
@@ -25,6 +26,7 @@ import {
   buildOrchestratorPrompt,
   resolvePrompt,
 } from './orchestrator';
+import { createNorseAgent } from './norse-agent';
 
 export type { AgentDefinition } from './orchestrator';
 
@@ -66,6 +68,18 @@ function applyOverrides(
       agent.config.model = override.model;
     }
   }
+  // Build _modelArray from model + fallback_models for graceful degradation
+  if (override.fallback_models?.length) {
+    const primaryModel = Array.isArray(override.model)
+      ? (typeof override.model[0] === 'string' ? override.model[0] : override.model[0].id)
+      : (override.model || agent.config.model);
+    if (primaryModel) {
+      agent._modelArray = [
+        { id: primaryModel },
+        ...override.fallback_models.map((m) => ({ id: m })),
+      ];
+    }
+  }
   if (override.variant) agent.config.variant = override.variant;
   if (override.temperature !== undefined)
     agent.config.temperature = override.temperature;
@@ -104,26 +118,17 @@ function getAgentModel(
 // ─── Agent Factories ────────────────────────────────────────────────────────
 
 const agentFactories: Record<string, AgentFactory> = {
-  orchestrator: (_model: string, customPrompt?: string, customAppendPrompt?: string): AgentDefinition => {
-    const model = getAgentModel('orchestrator', undefined);
-    const prompt = buildOrchestratorPrompt(undefined);
-    return {
-      name: 'orchestrator',
-      description:
-        'Central coordinator that analyzes requests and delegates to specialist agents.',
-      config: {
-        model,
-        temperature: 0.1,
-        prompt: customPrompt || prompt,
-      },
-    };
-  },
+  odin: (model: string, customPrompt?: string, customAppendPrompt?: string) =>
+    createNorseAgent('odin', model, customPrompt, customAppendPrompt) ??
+    createNorseAgent('njord', model, customPrompt, customAppendPrompt)!,
+  njord: (model: string, customPrompt?: string, customAppendPrompt?: string) =>
+    createNorseAgent('njord', model, customPrompt, customAppendPrompt)!,
   mimir: (model: string, customPrompt?: string, customAppendPrompt?: string) =>
     createMimirAgent(model, customPrompt, customAppendPrompt),
-  eir: (model: string, customPrompt?: string, customAppendPrompt?: string) =>
-    createEirAgent(model, customPrompt, customAppendPrompt),
-  sif: (model: string, customPrompt?: string, customAppendPrompt?: string) =>
-    createSifAgent(model, customPrompt, customAppendPrompt),
+  vidar: (model: string, customPrompt?: string, customAppendPrompt?: string) =>
+    createNorseAgent('vidar', model, customPrompt, customAppendPrompt)!,
+  thor: (model: string, customPrompt?: string, customAppendPrompt?: string) =>
+    createNorseAgent('thor', model, customPrompt, customAppendPrompt)!,
   freyr: (model: string, customPrompt?: string, customAppendPrompt?: string) =>
     createFreyrAgent(model, customPrompt, customAppendPrompt),
   hermod: (model: string, customPrompt?: string, customAppendPrompt?: string) =>
@@ -132,13 +137,23 @@ const agentFactories: Record<string, AgentFactory> = {
     createHeimdallAgent(model, customPrompt, customAppendPrompt),
   forseti: (model: string, customPrompt?: string, customAppendPrompt?: string) =>
     createCouncilAgent(model, customPrompt, customAppendPrompt),
+  frigg: (model: string, customPrompt?: string, customAppendPrompt?: string) =>
+    createNorseAgent('frigg', model, customPrompt, customAppendPrompt)!,
+  tyr: (model: string, customPrompt?: string, customAppendPrompt?: string) =>
+    createNorseAgent('tyr', model, customPrompt, customAppendPrompt)!,
+  eir: (model: string, customPrompt?: string, customAppendPrompt?: string) =>
+    createEirAgent(model, customPrompt, customAppendPrompt),
+  sif: (model: string, customPrompt?: string, customAppendPrompt?: string) =>
+    createSifAgent(model, customPrompt, customAppendPrompt),
+  magni: (model: string, customPrompt?: string, customAppendPrompt?: string) =>
+    createNorseAgent('magni', model, customPrompt, customAppendPrompt)!,
   hod: (model: string, customPrompt?: string, customAppendPrompt?: string) =>
     createCouncillorAgent(model, customPrompt, customAppendPrompt),
 };
 
 // ─── Main Exported Functions ────────────────────────────────────────────────
 
-export function createAgents(config: PluginConfig | undefined): AgentDefinition[] {
+export function createAgents(config: PluginConfig | undefined, catalog?: McpSkillCatalog): AgentDefinition[] {
   const disabledAgents = config?.disabled_agents ?? [];
   const agentOverrides = config?.agents ?? {};
   const result: AgentDefinition[] = [];
@@ -169,10 +184,18 @@ export function createAgents(config: PluginConfig | undefined): AgentDefinition[
       applyOverrides(agentDef, override);
     }
 
-    // Set MCP list for this agent
+    // Set MCP list for this agent — prefer user config, fall back to discovery
     const mcpList = getAgentMcpList(name, config);
     if (mcpList) {
       agentDef.config.mcps = mcpList;
+    } else if (catalog) {
+      // Auto-assign MCPs based on agent role + discovered catalog
+      const matched = catalog.findByTrigger(name)
+      if (matched.length > 0) {
+        agentDef.config.mcps = matched
+          .filter(e => e.category === 'mcp' && e.serverName)
+          .map(e => e.serverName!)
+      }
     }
 
     result.push(agentDef);
@@ -183,8 +206,9 @@ export function createAgents(config: PluginConfig | undefined): AgentDefinition[
 
 export function getAgentConfigs(
   config: PluginConfig | undefined,
+  catalog?: McpSkillCatalog,
 ): Record<string, any> {
-  const agents = createAgents(config);
+  const agents = createAgents(config, catalog);
   const configs: Record<string, any> = {};
   for (const agent of agents) {
     configs[agent.name] = agent.config;

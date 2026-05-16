@@ -154,6 +154,15 @@ export class SystemObserver {
   /** Register (or override) a component health check. */
   register(name: string, check: HealthCheckFn): void {
     this.components.set(name, { name, check })
+    // Seed with 'healthy' so getStatus() never reports 'down' before first check
+    if (!this.health.has(name)) {
+      this.health.set(name, {
+        name,
+        status: 'healthy',
+        lastCheck: Date.now(),
+        details: { seeded: true },
+      })
+    }
   }
 
   // ── Lifecycle ────────────────────────────────────────────────────────

@@ -3,6 +3,7 @@ import type { TaskRecord } from '../persistence';
 export const MIN_IDLE_MS = 100;
 export const POLL_INTERVAL_MS = 2000;
 export const STABILITY_THRESHOLD = 3;
+export const IDLE_COALESCE_MS = 100;
 
 export interface CompletionDetectorCallbacks {
   getTask(id: string): TaskRecord | null;
@@ -16,6 +17,10 @@ export interface CompletionDetectorCallbacks {
  * - Path A: Event-driven (session.idle) — never drops, always defers if too early
  * - Path B: Polling (every 2s) — checks all running tasks via message stability
  *
+ * Idle coalescing: rapid-fire idle notifications from the parent session are
+ * debounced with a 100ms window. Only the last idle event in a burst triggers
+ * completion detection, preventing redundant checks and race conditions.
+ *
  * This approach fixes the bug where fast tasks finish before the next poll tick,
  * leaving them stuck permanently in "running" state.
  */
@@ -25,24 +30,68 @@ export class CompletionDetector {
   private deferredChecks: Map<string, ReturnType<typeof setTimeout>> = new Map();
   private messageCountSnapshot: Map<string, number> = new Map();
   private messageCountStable: Map<string, number> = new Map();
+  private idleCoalesceTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
+  private pendingIdlePayloads: Map<string, { taskId: string; sessionId: string; elapsedMs: number }> = new Map();
 
   constructor(callbacks: CompletionDetectorCallbacks) {
     this.callbacks = callbacks;
   }
 
   // ============================================================
-  // Path A: Event-driven
+  // Path A: Event-driven (with idle coalescing)
   // ============================================================
 
   /**
    * Called when a session.idle event is received.
    *
+   * Rapid-fire idle events are coalesced: we schedule a 100ms debounce timer
+   * and only process the LAST idle event in the burst. This prevents
+   * redundant completion checks when the parent fires multiple idle events
+   * in quick succession.
+   *
    * - If elapsedMs < MIN_IDLE_MS: schedule a deferred check (never drop!)
    * - If elapsedMs >= MIN_IDLE_MS: check session messages for final content
    *
-   * Returns 'deferred' | 'completed' | 'still-running'
+   * Returns 'deferred' | 'coalesced' | 'completed' | 'still-running'
    */
   onSessionIdle(
+    taskId: string,
+    sessionId: string,
+    elapsedMs: number,
+  ): 'deferred' | 'coalesced' | 'completed' | 'still-running' {
+    // Coalesce rapid-fire idle events: cancel any pending timer for this task
+    // and schedule a new one. Only the last idle in the burst will fire.
+    const existingTimer = this.idleCoalesceTimers.get(taskId);
+    if (existingTimer) {
+      clearTimeout(existingTimer);
+    }
+
+    // Store the latest idle payload
+    this.pendingIdlePayloads.set(taskId, { taskId, sessionId, elapsedMs });
+
+    // Schedule the coalesced handler
+    const timer = setTimeout(() => {
+      this.idleCoalesceTimers.delete(taskId);
+      const payload = this.pendingIdlePayloads.get(taskId);
+      this.pendingIdlePayloads.delete(taskId);
+      if (payload) {
+        this.processIdleEvent(payload.taskId, payload.sessionId, payload.elapsedMs);
+      }
+    }, IDLE_COALESCE_MS);
+
+    // Don't prevent process exit
+    if (typeof timer === 'object' && 'unref' in timer) {
+      (timer as NodeJS.Timeout).unref();
+    }
+
+    this.idleCoalesceTimers.set(taskId, timer);
+    return 'coalesced';
+  }
+
+  /**
+   * Process a single idle event after coalescing debounce window.
+   */
+  private processIdleEvent(
     taskId: string,
     _sessionId: string,
     elapsedMs: number,
@@ -61,7 +110,6 @@ export class CompletionDetector {
     );
 
     if (hasFinalContent) {
-      // Find the final assistant/agent message content
       const finalMessages = messages.filter(
         (m) => (m.role === 'assistant' || m.role === 'agent') && m.content,
       );
@@ -100,12 +148,10 @@ export class CompletionDetector {
       const stableCount = this.messageCountStable.get(taskId) ?? 0;
 
       if (currentCount === prevCount && currentCount > 0) {
-        // Message count hasn't changed — increment stability counter
         const newStable = stableCount + 1;
         this.messageCountStable.set(taskId, newStable);
 
         if (newStable >= STABILITY_THRESHOLD) {
-          // Task appears complete — mark as completed
           const finalContent = this.extractFinalContent(messages);
           this.callbacks.updateStatus(taskId, 'completed', {
             outputCache: finalContent,
@@ -114,13 +160,11 @@ export class CompletionDetector {
           this.cleanupPollingState(taskId);
         }
       } else {
-        // Message count changed or messages cleared — reset stability
         this.messageCountSnapshot.set(taskId, currentCount);
         this.messageCountStable.set(taskId, 0);
       }
     }
 
-    // Clean up polling state for tasks no longer running
     this.cleanupStalePollingState(runningIds);
   }
 
@@ -132,7 +176,7 @@ export class CompletionDetector {
     if (this.pollInterval) return;
     this.pollInterval = setInterval(() => {
       this.onPollTick().catch(() => {
-        // poll errors are silent — individual task checks fail independently
+        // poll errors are silent
       });
     }, intervalMs);
   }
@@ -149,16 +193,13 @@ export class CompletionDetector {
   // ============================================================
 
   private scheduleDeferredCheck(taskId: string, delayMs: number): void {
-    // Cancel existing deferred check if any
     this.cleanupDeferred(taskId);
 
     const timer = setTimeout(() => {
       this.deferredChecks.delete(taskId);
-      // When the deferred check fires, treat it as an idle event with sufficient elapsed time
-      this.onSessionIdle(taskId, '', MIN_IDLE_MS + 1);
+      this.processIdleEvent(taskId, '', MIN_IDLE_MS + 1);
     }, delayMs);
 
-    // Don't prevent process exit
     if (typeof timer === 'object' && 'unref' in timer) {
       (timer as NodeJS.Timeout).unref();
     }
@@ -207,6 +248,12 @@ export class CompletionDetector {
     for (const [taskId] of this.deferredChecks) {
       this.cleanupDeferred(taskId);
     }
+    for (const [taskId] of this.idleCoalesceTimers) {
+      const timer = this.idleCoalesceTimers.get(taskId);
+      if (timer) clearTimeout(timer);
+    }
+    this.idleCoalesceTimers.clear();
+    this.pendingIdlePayloads.clear();
     this.messageCountSnapshot.clear();
     this.messageCountStable.clear();
   }

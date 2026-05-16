@@ -1,3 +1,4 @@
+import { spawn, type ChildProcess } from 'node:child_process';
 import type { McpServerConfig, McpHealthStatus } from './types';
 
 export type { McpServerConfig, McpHealthStatus };
@@ -18,15 +19,25 @@ export const DEFAULT_MCP_SERVERS: McpServerConfig[] = [
   { name: 'agent-browser', type: 'local', command: ['npx', '-y', '@opencode-ai/agent-browser-mcp'], enabled: true },
 ];
 
+interface ServerProcess {
+  process: ChildProcess;
+}
+
 export class McpBus {
   private servers: Map<string, McpServerConfig>;
   private healthStatuses: Map<string, McpHealthStatus>;
   private healthInterval: ReturnType<typeof setInterval> | null;
+  private processes: Map<string, ServerProcess>;
+  private reconnectAttempts: Map<string, number>;
+  private readonly MAX_RECONNECT_ATTEMPTS = 3;
+  private readonly HEALTH_PING_TIMEOUT_MS = 5000;
 
   constructor(serverConfigs?: McpServerConfig[]) {
     this.servers = new Map();
     this.healthStatuses = new Map();
     this.healthInterval = null;
+    this.processes = new Map();
+    this.reconnectAttempts = new Map();
 
     if (serverConfigs) {
       for (const config of serverConfigs) {
@@ -37,6 +48,93 @@ export class McpBus {
 
   registerServer(config: McpServerConfig): void {
     this.servers.set(config.name, config);
+  }
+
+  private async spawnLocalMcp(config: McpServerConfig): Promise<ServerProcess> {
+    if (!config.command || config.command.length === 0) {
+      throw new Error(`No command specified for local MCP server: ${config.name}`);
+    }
+
+    const [cmd, ...args] = config.command;
+    const child = spawn(cmd, args, {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: { ...process.env },
+    });
+
+    if (!child.stdin || !child.stdout) {
+      child.kill();
+      throw new Error(`Failed to spawn subprocess for MCP server: ${config.name}`);
+    }
+
+    child.on('error', (err) => {
+      const status: McpHealthStatus = {
+        server: config.name,
+        online: false,
+        lastCheck: Date.now(),
+        error: `subprocess error: ${err.message}`,
+      };
+      this.healthStatuses.set(config.name, status);
+    });
+
+    child.on('exit', (code) => {
+      if (code !== 0 && code !== null) {
+        const status: McpHealthStatus = {
+          server: config.name,
+          online: false,
+          lastCheck: Date.now(),
+          error: `subprocess exited with code ${code}`,
+        };
+        this.healthStatuses.set(config.name, status);
+        this.processes.delete(config.name);
+      }
+    });
+
+    return { process: child };
+  }
+
+  private async connectRemoteMcp(config: McpServerConfig): Promise<void> {
+    if (!config.url) {
+      throw new Error(`No URL specified for remote MCP server: ${config.name}`);
+    }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), this.HEALTH_PING_TIMEOUT_MS);
+
+    try {
+      const response = await fetch(config.url, {
+        method: 'GET',
+        signal: controller.signal,
+        headers: { 'Accept': 'text/event-stream' },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  private async pingServer(name: string, config: McpServerConfig): Promise<boolean> {
+    if (config.type === 'local') {
+      const existing = this.processes.get(name);
+      if (existing && !existing.process.killed) {
+        return true;
+      }
+
+      try {
+        const proc = await this.spawnLocalMcp(config);
+        this.processes.set(name, proc);
+        this.reconnectAttempts.set(name, 0);
+        return true;
+      } catch (err) {
+        const attempts = (this.reconnectAttempts.get(name) ?? 0) + 1;
+        this.reconnectAttempts.set(name, attempts);
+        throw err;
+      }
+    } else {
+      return this.connectRemoteMcp(config).then(() => true);
+    }
   }
 
   async connectAll(): Promise<McpHealthStatus[]> {
@@ -57,24 +155,39 @@ export class McpBus {
       }
 
       try {
-        // For now, just mark as "connection attempted"
-        // Actual subprocess spawning (local) or SSE/HTTP (remote) comes in Wave 2
+        const online = await this.pingServer(name, config);
         const status: McpHealthStatus = {
           server: name,
-          online: true,
-          lastCheck: now,
+          online,
+          lastCheck: Date.now(),
         };
         this.healthStatuses.set(name, status);
         results.push(status);
       } catch (err) {
+        const attempts = this.reconnectAttempts.get(name) ?? 0;
         const status: McpHealthStatus = {
           server: name,
           online: false,
-          lastCheck: now,
+          lastCheck: Date.now(),
           error: err instanceof Error ? err.message : String(err),
         };
         this.healthStatuses.set(name, status);
         results.push(status);
+
+        if (attempts < this.MAX_RECONNECT_ATTEMPTS) {
+          setTimeout(async () => {
+            try {
+              await this.pingServer(name, config);
+              this.healthStatuses.set(name, {
+                server: name,
+                online: true,
+                lastCheck: Date.now(),
+              });
+            } catch {
+              // Reconnect failed — will retry on next health check cycle
+            }
+          }, Math.min(1000 * Math.pow(2, attempts), 30000));
+        }
       }
     }
 
@@ -82,7 +195,36 @@ export class McpBus {
   }
 
   async healthCheck(): Promise<McpHealthStatus[]> {
-    return this.connectAll();
+    const results: McpHealthStatus[] = [];
+    const now = Date.now();
+
+    for (const [name, config] of this.servers) {
+      if (!config.enabled) continue;
+
+      try {
+        if (config.type === 'local') {
+          const proc = this.processes.get(name);
+          if (proc && !proc.process.killed) {
+            results.push({ server: name, online: true, lastCheck: now });
+          } else {
+            await this.pingServer(name, config);
+            results.push({ server: name, online: true, lastCheck: Date.now() });
+          }
+        } else {
+          await this.connectRemoteMcp(config);
+          results.push({ server: name, online: true, lastCheck: Date.now() });
+        }
+      } catch (err) {
+        results.push({
+          server: name,
+          online: false,
+          lastCheck: Date.now(),
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+
+    return results;
   }
 
   getOnlineServers(): McpServerConfig[] {
@@ -121,7 +263,12 @@ export class McpBus {
 
   shutdown(): void {
     this.stopHealthMonitor();
+    for (const [name, proc] of this.processes) {
+      proc.process.kill();
+    }
+    this.processes.clear();
     this.servers.clear();
     this.healthStatuses.clear();
+    this.reconnectAttempts.clear();
   }
 }

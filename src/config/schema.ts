@@ -20,6 +20,7 @@ export const AgentOverrideConfigSchema = z
           .min(1),
       ])
       .optional(),
+    fallback_models: z.array(z.string()).optional(),
     temperature: z.number().min(0).max(2).optional(),
     variant: z.string().optional().catch(undefined),
     skills: z.array(z.string()).optional(),
@@ -63,8 +64,24 @@ export const WebsearchConfigSchema = z.object({
 });
 export type WebsearchConfig = z.infer<typeof WebsearchConfigSchema>;
 
-// MCP names
-export const McpNameSchema = z.enum(['websearch', 'context7', 'grep_app']);
+// MCP names — dynamically covers all known MCP servers
+export const McpNameSchema = z.enum([
+  'websearch',
+  'context7',
+  'grep_app',
+  'clawdi',
+  'gbrain',
+  'context-mode',
+  'code-review-graph',
+  'gitnexus',
+  'loom-mcp',
+  'openspace',
+  'exa',
+  'gh_grep',
+  'deepwiki',
+  'sequential-thinking',
+  'agent-browser',
+]);
 export type McpName = z.infer<typeof McpNameSchema>;
 
 // Interview config

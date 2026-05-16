@@ -1,4 +1,4 @@
-import { Database } from 'bun:sqlite'
+import { Database } from '../../utils/sqlite.js'
 import type { TeamTask } from './types'
 
 function serializeDependsOn(deps: string[]): string {
@@ -83,23 +83,29 @@ export class TeamTaskList {
   }
 
   getTasksByTeam(teamId: string): TeamTask[] {
-    const rows = this.db.query(
-      `SELECT * FROM team_tasks WHERE team_id = ? ORDER BY created_at ASC`,
-    ).all(teamId) as Record<string, unknown>[]
+    const rows = this.db
+      .prepare(
+        `SELECT * FROM team_tasks WHERE team_id = ? ORDER BY created_at ASC`,
+      )
+      .all(teamId) as Record<string, unknown>[]
     return rows.map(rowToTask)
   }
 
   getTasksByAgent(agentName: string): TeamTask[] {
-    const rows = this.db.query(
-      `SELECT * FROM team_tasks WHERE assigned_to = ? ORDER BY created_at ASC`,
-    ).all(agentName) as Record<string, unknown>[]
+    const rows = this.db
+      .prepare(
+        `SELECT * FROM team_tasks WHERE assigned_to = ? ORDER BY created_at ASC`,
+      )
+      .all(agentName) as Record<string, unknown>[]
     return rows.map(rowToTask)
   }
 
   getBlockedTasks(): TeamTask[] {
-    const rows = this.db.query(
-      `SELECT * FROM team_tasks WHERE status = 'blocked' ORDER BY created_at ASC`,
-    ).all() as Record<string, unknown>[]
+    const rows = this.db
+      .prepare(
+        `SELECT * FROM team_tasks WHERE status = 'blocked' ORDER BY created_at ASC`,
+      )
+      .all() as Record<string, unknown>[]
     return rows.map(rowToTask)
   }
 }

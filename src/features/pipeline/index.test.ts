@@ -93,7 +93,8 @@ describe('PipelineOrchestrator', () => {
 
     expect(session.agentName).toBe('sif')
     expect(session.displayName).toBe('@Sif')
-    expect(session.sessionId).toMatch(/^sub-sif-\d+$/)
+    expect(session.sessionId).toMatch(/^sub_\d+_[a-z0-9]+$/)
+    expect(session.taskId).toMatch(/^task_\d+_[a-z0-9]+$/)
     expect(session.taskDescription).toBe('Search for API route patterns')
     expect(session.status).toBe('launched')
     expect(session.visible).toBe(true)

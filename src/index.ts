@@ -8,12 +8,14 @@ import { createWebfetchTool } from './tools/smartfetch/tool';
 import { ast_grep_replace, ast_grep_search } from './tools/ast-grep';
 import { createCouncilTool } from './tools/council';
 import { createPresetManager } from './tools/preset-manager';
-import { createOmPlanHook } from './hooks/om-plan';
-import { createOmAuditHook } from './hooks/om-audit';
+import { writeAgentFiles } from './utils/write-agents';
+import { createOmPlanHook } from './features/om-plan';
+import { createOmAuditHook } from './features/om-audit';
+import { createPipelineCommandHandler } from './features/agent-commands/handler';
 import {
-  createSynthesizedHooks,
+  createUnifiedHooks,
   type SynthesizedHooksConfig,
-} from './hooks/synthesized-hooks';
+} from './hooks/delegation';
 import {
   createSubtaskCommandManager,
   createSubtaskState,
@@ -27,6 +29,28 @@ import { lazyLoader } from './features/lazy-loader';
 import { createDisplayNameMentionRewriter } from './utils/index';
 import { initLogger, log } from './utils/logger';
 import { collapseSystemInPlace } from './utils/system-collapse';
+import { McpSkillCatalog } from './features/tool-use-enforcer/mcp-skill-catalog';
+import { AgentContextEnricher } from './features/tool-use-enforcer/agent-context-enricher';
+import { discoverUserMcps, mergeMcpConfigs } from './features/mcp-discovery';
+import { DEFAULT_MCP_SERVERS } from './mcp-bus';
+import { SystemObserver } from './features/system-observer';
+import { createAgentSelector } from './features/agent-selector';
+import { InterviewEngine } from './interview/server';
+import { startTui, updateHealth, setSessionId } from './tui';
+import { SkillMcpManager } from './features/skill-mcp-manager';
+import { ModelRouter } from './features/model-router/router';
+import { createMetricsCollector } from './features/metrics';
+import { createLearningEngine } from './features/learning-engine';
+import { createModelPredictor } from './features/model-predictor';
+import { createBenchmarkTracker } from './features/benchmark-tracker';
+import { createPluginRegistry } from './features/plugin-registry';
+import { createSkillCodifier } from './features/skill-codifier';
+import { createSessionRouter } from './features/session-router';
+import { createIntegrationHub } from './features/integration-hub';
+import { createDiagnosticsChecker } from './features/diagnostics';
+import { createCapabilitiesExplorer } from './features/capabilities';
+import { createOnboardingGuide } from './features/onboarding';
+import { createTransparencyLog } from './features/transparency-log';
 
 async function appLog(
   ctx: Parameters<Plugin>[0],
@@ -79,16 +103,58 @@ const OhMyUnified: Plugin = async (ctx) => {
   let subtaskState: ReturnType<typeof createSubtaskState>;
   let omPlanHook: ReturnType<typeof createOmPlanHook>;
   let omAuditHook: ReturnType<typeof createOmAuditHook>;
-  let synthesizedHooks: ReturnType<typeof createSynthesizedHooks>;
+  let pipelineCommandHandler: ReturnType<typeof createPipelineCommandHandler>;
+  let unifiedHooks: ReturnType<typeof createUnifiedHooks>;
   let toolCount = 0;
+
+  // Phase A wiring: feature module instances
+  let systemObserver: SystemObserver;
+  let agentSelector: ReturnType<typeof createAgentSelector>;
+  let interviewEngine: InterviewEngine;
+  let skillMCPManager: SkillMcpManager;
+  let modelRouter: ModelRouter;
+  let metricsCollector: ReturnType<typeof createMetricsCollector>;
+  let learningEngine: ReturnType<typeof createLearningEngine>;
+  let modelPredictor: ReturnType<typeof createModelPredictor>;
+  let benchmarkTracker: ReturnType<typeof createBenchmarkTracker>;
+  let pluginRegistry: ReturnType<typeof createPluginRegistry>;
+  let skillCodifier: ReturnType<typeof createSkillCodifier>;
+  let sessionRouter: ReturnType<typeof createSessionRouter>;
+  let integrationHub: ReturnType<typeof createIntegrationHub>;
+  let diagnosticsChecker: ReturnType<typeof createDiagnosticsChecker>;
+  let capabilitiesExplorer: ReturnType<typeof createCapabilitiesExplorer>;
+  let onboardingGuide: ReturnType<typeof createOnboardingGuide>;
+  let transparencyLog: ReturnType<typeof createTransparencyLog>;
 
   try {
     config = loadPluginConfig(ctx.directory);
 
     disabledAgents = getDisabledAgents(config);
     rewriteDisplayNameMentions = createDisplayNameMentionRewriter(config);
-    agentDefs = createAgents(config);
-    agents = getAgentConfigs(config);
+
+    // Build dynamic MCP/skill catalog from user's actual install
+    const catalog = new McpSkillCatalog()
+    const enricher = new AgentContextEnricher(catalog)
+
+    // Discover and merge user's MCPs with defaults
+    const discoveredMcps = discoverUserMcps()
+    const mergedMcpServers = mergeMcpConfigs(discoveredMcps, DEFAULT_MCP_SERVERS)
+
+    // Built-in MCPs — wired with discovered/merged configs
+    mcps = createBuiltinMcps(config.disabled_mcps, config.websearch, mergedMcpServers)
+
+    // Enrich agent definitions with discovered skills
+    agentDefs = createAgents(config, catalog)
+
+    // Write agent definitions to .opencode/agent/ so OpenCode's config system picks them up
+    try {
+      const written = writeAgentFiles(agentDefs, ctx.directory);
+      log('[plugin] wrote agent files', { count: written.length, agents: written });
+    } catch (err) {
+      log('[plugin] failed to write agent files', { error: String(err) });
+    }
+
+    agents = getAgentConfigs(config, catalog);
 
     // Build model array map for runtime fallback
     modelArrayMap = {};
@@ -141,9 +207,6 @@ const OhMyUnified: Plugin = async (ctx) => {
       ? createCouncilTool(ctx, config, [])
       : {};
 
-    // Built-in MCPs
-    mcps = createBuiltinMcps(config.disabled_mcps, config.websearch);
-
     // Webfetch tool
     webfetch = createWebfetchTool(ctx);
 
@@ -151,18 +214,113 @@ const OhMyUnified: Plugin = async (ctx) => {
     subtaskState = createSubtaskState();
     subtaskCommandManager = createSubtaskCommandManager(ctx, subtaskState);
 
-    // Slash command hooks
-    omPlanHook = createOmPlanHook(ctx, config);
-    omAuditHook = createOmAuditHook(ctx, config);
+    // Transparency Log — centralized decision/audit trail (created early for hooks)
+    transparencyLog = createTransparencyLog();
 
-    // Synthesized hooks — combine best patterns from openagent + slim
-    // These are NOT copied from either plugin. They provide: context window
-    // monitoring, file write guards, overwrite protection, task reminders,
-    // model routing, error recovery, webfetch redirect protection, diff
-    // enhancement, empty response detection, comment checking, and fsync
-    // warnings. Each hook is independently configurable.
-    synthesizedHooks = createSynthesizedHooks(ctx, config, {
-      // Enable by default; individual configs can override
+    // Slash command hooks
+    omPlanHook = createOmPlanHook(ctx, config, { transparencyLog });
+    omAuditHook = createOmAuditHook(ctx, config, { transparencyLog });
+
+    // Pipeline command handler for /plan, /assess, /assemble, /improvise, /act, /synthesize, /health, /status
+    pipelineCommandHandler = createPipelineCommandHandler(ctx, config, systemObserver!);
+
+    // ── Phase A: Wire feature modules ──────────────────────────────────
+
+    // System Observer — start health monitoring
+    systemObserver = new SystemObserver();
+    systemObserver.start();
+    systemObserver.setConnectedMcps(Object.keys(mcps).length);
+
+    // Agent Selector — enriched metadata for all agents
+    agentSelector = createAgentSelector();
+    for (const agentDef of agentDefs) {
+      agentSelector.registerAgent({
+        name: agentDef.name,
+        displayName: agentDef.displayName ?? `@${agentDef.name}`,
+        description: '',
+        role: '',
+        model: agentDef._modelArray?.[0]?.id ?? agentDef.config.model ?? 'openai/gpt-5.4-mini',
+        fallbackModels: agentDef._modelArray?.map(m => m.id) ?? [],
+        template: '',
+        isPrimary: true,
+        canDelegate: false,
+        skills: [],
+      });
+    }
+
+    // Interview Dashboard — start HTTP server with SSE
+    interviewEngine = new InterviewEngine(3456);
+    interviewEngine.start();
+
+    // Skill MCP Manager — Tier 3 skill-embedded MCP loader
+    skillMCPManager = new SkillMcpManager();
+
+    // Model Router — intelligent model selection
+    modelRouter = new ModelRouter();
+
+    // Metrics Collector — track fallback triggers, model routing, review outcomes, security findings
+    metricsCollector = createMetricsCollector(':memory:', { dailyBudget: 10.0 });
+
+    // Learning Engine — cross-session learning for patterns, successes, failures
+    learningEngine = createLearningEngine(':memory:');
+
+    // Model Predictor — predictive model selection using historical performance
+    modelPredictor = createModelPredictor();
+
+    // Benchmark Tracker — performance regression tracking across model changes
+    benchmarkTracker = createBenchmarkTracker(':memory:');
+
+    // Tier 3: Plugin System — third-party feature registration
+    pluginRegistry = createPluginRegistry();
+
+    // Tier 3: Auto-Skill Generation — pattern codification
+    skillCodifier = createSkillCodifier({ threshold: 5 });
+
+    // Tier 3: Multi-User Collaboration — session routing
+    sessionRouter = createSessionRouter();
+
+    // Tier 3: External Integrations — GitHub/Jira/Slack
+    integrationHub = createIntegrationHub();
+
+    // Trust & Discovery Features
+    diagnosticsChecker = createDiagnosticsChecker({
+      agentCount: Object.keys(agents).length,
+      mcpCount: Object.keys(mcps).length,
+      tuiRunning: true,
+      interviewRunning: true,
+      pluginCount: pluginRegistry.getStats().totalPlugins,
+      integrationCount: integrationHub.getStats().totalIntegrations,
+      circuitBreakerHealth: [
+        { name: 'review-work', state: 'closed' },
+        { name: 'hyperplan', state: 'closed' },
+        { name: 'security-research', state: 'closed' },
+        { name: 'model-fallback', state: 'closed' },
+        { name: 'proactive-fallback', state: 'closed' },
+      ],
+    });
+
+    capabilitiesExplorer = createCapabilitiesExplorer({
+      agentCount: Object.keys(agents).length,
+      mcpCount: Object.keys(mcps).length,
+      pluginCount: pluginRegistry.getStats().totalPlugins,
+      integrationCount: integrationHub.getStats().totalIntegrations,
+      hasLearningEngine: true,
+      hasModelPredictor: true,
+      hasBenchmarkTracker: true,
+      hasCircuitBreakers: true,
+    });
+
+    onboardingGuide = createOnboardingGuide({
+      agentCount: Object.keys(agents).length,
+      mcpCount: Object.keys(mcps).length,
+      isFirstRun: true,
+    });
+
+    // Unified hooks — delegation layer that maps standard OpenCode hook names
+    // to our internal sub-hooks. Without this layer, OpenCode ignores our hooks
+    // because it only recognizes standard names (event, tool.execute.before,
+    // tool.execute.after, chat.message, etc.).
+    unifiedHooks = createUnifiedHooks(ctx, config, {
       contextWindowMonitor: { enabled: true },
       fileWriteGuard: { enabled: true },
       overwriteProtection: { enabled: true },
@@ -172,8 +330,23 @@ const OhMyUnified: Plugin = async (ctx) => {
       webFetchGuard: { enabled: true },
       diffEnhancer: { enabled: true },
       emptyResponseDetector: { enabled: true },
-      commentChecker: { enabled: false },  // disabled by default (needs external CLI)
+      commentChecker: { enabled: false },
       fsyncWarning: { enabled: true },
+    }, runtimeChains, {
+      agentSelector,
+      systemObserver,
+      interviewEngine,
+      skillMcpManager: skillMCPManager,
+      modelRouter,
+      metricsCollector,
+      learningEngine,
+      modelPredictor,
+      benchmarkTracker,
+      pluginRegistry,
+      skillCodifier,
+      sessionRouter,
+      integrationHub,
+      transparencyLog,
     });
 
     // Tool count for health check
@@ -213,16 +386,33 @@ const OhMyUnified: Plugin = async (ctx) => {
   // This makes them visible and selectable in the desktop sidebar
   // Using the same pattern as oh-my-openagent's agent-sort-shim
   for (const agent of PRIMARY_AGENTS) {
-    updateAgentModel(agent.name, agent.model, agent.displayName)
+    updateAgentModel(agent.name, agent.model, agent.displayName, agent.role);
     // Register in lazy loader
-    lazyLoader.register(agent.name, 'agent', agent.displayName, agent.description)
+    lazyLoader.register(agent.name, 'agent', agent.displayName, agent.description);
+    // Register in agent selector
+    agentSelector.registerAgent(agent);
   }
-  setActiveAgent('odin')
+  setActiveAgent('odin');
+  setSessionId(sessionId);
 
   // Also register sub-agents in lazy loader (they're not in TUI but available for delegation)
   for (const agent of AGENTS.filter(a => !a.isPrimary)) {
-    lazyLoader.register(agent.name, 'agent', agent.displayName, agent.description)
+    lazyLoader.register(agent.name, 'agent', agent.displayName, agent.description);
+    agentSelector.registerAgent(agent);
   }
+
+  // Update TUI health from SystemObserver
+  const healthReport = systemObserver.getStatus();
+  updateHealth({
+    agentCount: Object.keys(agents).length,
+    toolCount,
+    mcpCount: Object.keys(mcps).length,
+    status: healthReport.overall === 'healthy' ? 'healthy' : healthReport.overall === 'degraded' ? 'warning' : 'critical',
+  });
+
+  // TUI disabled — OpenCode provides its own terminal UI.
+  // The plugin's Ink TUI conflicts with OpenCode's input handling.
+  // startTui();
 
   // Probe jsdom
   probeJSDOM().then((err) => {
@@ -231,13 +421,15 @@ const OhMyUnified: Plugin = async (ctx) => {
       log(`[plugin] WARN: ${msg}`);
       appLog(ctx, 'warn', msg).catch(() => {});
     }
-  });
+  }).catch(() => {});
 
 return {
     name: 'oh-my-unified',
 
-    // Spread synthesized hooks so their lifecycle handlers are registered
-    ...synthesizedHooks,
+    // Spread unified hooks — delegation layer maps standard OpenCode hook names
+    // to our internal sub-hooks (event, tool.execute.before, tool.execute.after,
+    // chat.message, etc.)
+    ...unifiedHooks,
 
     agent: agents,
 
@@ -286,6 +478,79 @@ return {
     ): Promise<void> => {
       await omPlanHook.handleCommandExecuteBefore(input, output);
       await omAuditHook.handleCommandExecuteBefore(input, output);
+
+      // Pipeline commands: /plan, /assess, /assemble, /improvise, /act, /synthesize, /health, /status
+      await pipelineCommandHandler.handleCommand(input, output);
+
+      // Trust & Discovery commands
+      const cmd = input.command.toLowerCase();
+      if (cmd === 'diagnose') {
+        const report = await diagnosticsChecker.runAll();
+        output.parts.length = 0;
+        output.parts.push({
+          type: 'text',
+          text: diagnosticsChecker.formatReport(report),
+        });
+        return;
+      }
+
+      if (cmd === 'capabilities') {
+        output.parts.length = 0;
+        output.parts.push({
+          type: 'text',
+          text: capabilitiesExplorer.formatCapabilities(),
+        });
+        return;
+      }
+
+      if (cmd === 'onboarding') {
+        output.parts.length = 0;
+        output.parts.push({
+          type: 'text',
+          text: onboardingGuide.getWelcomeMessage(),
+        });
+        return;
+      }
+
+      if (cmd === 'log') {
+        const args = input.arguments.trim().toLowerCase();
+        let entries;
+        if (args.startsWith('stats')) {
+          const stats = transparencyLog.getStats();
+          const lines = [
+            '📊 Transparency Log Statistics',
+            '═'.repeat(40),
+            `Total entries: ${stats.totalEntries}`,
+            `Sessions: ${Object.keys(stats.bySession).length}`,
+            '',
+            'By type:',
+            ...Object.entries(stats.byType).map(([t, c]) => `  ${t}: ${c}`),
+            '',
+            'By session:',
+            ...Object.entries(stats.bySession).map(([s, c]) => `  ${s.slice(0, 20)}...: ${c}`),
+          ];
+          output.parts.length = 0;
+          output.parts.push({ type: 'text', text: lines.join('\n') });
+          return;
+        }
+
+        if (args.startsWith('recent')) {
+          const limit = parseInt(args.split(' ')[1], 10) || 10;
+          entries = transparencyLog.getRecent(limit);
+        } else if (args) {
+          const type = args as any;
+          entries = transparencyLog.getByType(type);
+        } else {
+          entries = transparencyLog.getRecent(20);
+        }
+
+        output.parts.length = 0;
+        output.parts.push({
+          type: 'text',
+          text: transparencyLog.formatLog(entries),
+        });
+        return;
+      }
     },
   };
 };

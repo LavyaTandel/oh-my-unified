@@ -3,6 +3,7 @@ import { WorkflowEngine, getNextPhase } from '../workflow-orchestrator/workflow-
 import { RoleEnforcer } from '../role-enforcer'
 import { getPhaseExecutionPlan } from '../workflow-orchestrator/prometheus-recon'
 import { getAgent, type AgentConfig } from '../agent-commands'
+import { TaskRegistry } from '../../persistence'
 
 /**
  * A SubSession represents ANY agent deployed to work autonomously.
@@ -16,6 +17,7 @@ export interface SubSession {
   agentName: string
   displayName: string
   sessionId: string
+  taskId: string
   taskDescription: string
   status: 'launched' | 'running' | 'completed' | 'failed'
   visible: true           // User can watch but not interact
@@ -72,18 +74,30 @@ export function generateTaskPrompt(task: DelegatedTask): string {
   return lines.join('\n')
 }
 
+function generateTaskId(): string {
+  const suffix = Math.random().toString(36).slice(2, 8)
+  return `task_${Date.now()}_${suffix}`
+}
+
+function generateSessionId(): string {
+  const suffix = Math.random().toString(36).slice(2, 8)
+  return `sub_${Date.now()}_${suffix}`
+}
+
 export class PipelineOrchestrator {
-  private conductor: string = 'odin'  // Who's in the main session
+  private conductor: string = 'odin'
   private subSessions: Map<string, SubSession> = new Map()
   private kanban: KanbanTracker
   private workflow: WorkflowEngine
   private roleEnforcer: RoleEnforcer
   private waitingForSubs: boolean = false
+  private taskRegistry: TaskRegistry | null = null
 
-  constructor() {
+  constructor(taskRegistry?: TaskRegistry) {
     this.kanban = new KanbanTracker()
     this.workflow = new WorkflowEngine()
     this.roleEnforcer = new RoleEnforcer()
+    this.taskRegistry = taskRegistry ?? null
   }
 
   // ── Getters ─────────────────────────────────────────────────────────────
@@ -120,22 +134,40 @@ export class PipelineOrchestrator {
    * Even primary agents (other than the conductor) get sub-sessions.
    * Only the conductor stays in the main session.
    */
-  async callAgent(task: DelegatedTask): Promise<SubSession> {
+  async callAgent(task: DelegatedTask, parentSessionId?: string): Promise<SubSession> {
     const agent = getAgent(task.agentName)
     if (!agent) throw new Error(`Unknown agent: ${task.agentName}`)
 
-    // Check role permissions for research actions
     const permission = this.roleEnforcer.checkPermission(task.agentName, 'research')
     if (permission.blocked) throw new Error(permission.violation)
 
-    // Generate structured prompt
     const prompt = generateTaskPrompt(task)
+    const taskId = generateTaskId()
+    const sessionId = generateSessionId()
 
-    // Create sub-session with full objective
+    if (this.taskRegistry) {
+      this.taskRegistry.createTask({
+        id: taskId,
+        sessionId,
+        parentSessionId,
+        agent: task.agentName,
+        status: 'pending',
+        description: task.objective,
+        category: 'pipeline',
+        metadata: JSON.stringify({
+          phase: this.workflow.getPhase(),
+          conductor: this.conductor,
+          dependsOn: task.dependsOn,
+        }),
+      })
+      this.taskRegistry.updateStatus(taskId, 'running')
+    }
+
     const session: SubSession = {
       agentName: task.agentName,
       displayName: agent.displayName,
-      sessionId: `sub-${task.agentName}-${Date.now()}`,
+      sessionId,
+      taskId,
       taskDescription: task.objective.slice(0, 100),
       status: 'launched',
       visible: true,
@@ -156,8 +188,24 @@ export class PipelineOrchestrator {
     this.waitingForSubs = true
     const startTime = Date.now()
 
-    // Poll until all sub-sessions complete (or timeout)
     while (this.subSessions.size > 0) {
+      for (const [id, session] of this.subSessions) {
+        if (session.status === 'launched' || session.status === 'running') {
+          if (this.taskRegistry) {
+            const task = this.taskRegistry.getTask(session.taskId)
+            if (task) {
+              if (task.status === 'completed') {
+                session.status = 'completed'
+                session.result = task.outputCache ?? 'Task completed'
+              } else if (task.status === 'error' || task.status === 'cancelled') {
+                session.status = 'failed'
+                session.result = `Task ${task.status}`
+              }
+            }
+          }
+        }
+      }
+
       const allDone = Array.from(this.subSessions.values()).every(s =>
         s.status === 'completed' || s.status === 'failed'
       )
@@ -168,11 +216,22 @@ export class PipelineOrchestrator {
       }
 
       if (Date.now() - startTime > timeoutMs) {
+        for (const session of this.subSessions.values()) {
+          if (session.status === 'launched' || session.status === 'running') {
+            session.status = 'failed'
+            session.result = 'Task timed out'
+            if (this.taskRegistry) {
+              this.taskRegistry.updateStatus(session.taskId, 'error', {
+                outputCache: 'Task timed out',
+                completedAt: Date.now(),
+              })
+            }
+          }
+        }
         this.waitingForSubs = false
-        return false  // timeout
+        return false
       }
 
-      // Wait before polling again
       await new Promise(resolve => setTimeout(resolve, 1000))
     }
 
@@ -187,6 +246,12 @@ export class PipelineOrchestrator {
     session.status = 'completed'
     session.result = result
     this.kanban.completeTask(sessionId, result)
+    if (this.taskRegistry) {
+      this.taskRegistry.updateStatus(session.taskId, 'completed', {
+        outputCache: result,
+        completedAt: Date.now(),
+      })
+    }
     return true
   }
 
@@ -218,10 +283,8 @@ export class PipelineOrchestrator {
     this.workflow.updateConfidence('initial', 10)
     this.workflow.transitionTo('assess')
 
-    // Only the conductor works in the main session for the interview
     this.kanban.addTask('assess', this.conductor, `@${this.conductor.charAt(0).toUpperCase() + this.conductor.slice(1)}`, `Interview: ${userRequest.slice(0, 50)}...`)
 
-    // Deploy sub-sessions for supporting agents (frigg + mimir research in background)
     await this.callAgent({
       agentName: 'frigg',
       objective: `Gap analysis on requirements: ${userRequest}`,
@@ -277,13 +340,10 @@ export class PipelineOrchestrator {
     const plan = getPhaseExecutionPlan(phase)
     if (!plan) return
 
-    // Deploy agents according to the phase plan
-    // Every agent gets a sub-session — primaries are NOT special anymore
     for (const item of [...(plan.parallel ?? []), ...(plan.sequential ?? [])]) {
       if (item.tool === 'subagent' && item.target) {
         const agentName = item.target.replace('@', '').toLowerCase()
 
-        // Skip the conductor — they stay in the main session
         if (agentName === this.conductor) {
           this.kanban.addTask(phase as KanbanTask['phase'], agentName, item.target, item.action)
           continue
@@ -294,12 +354,10 @@ export class PipelineOrchestrator {
 
         const check = this.roleEnforcer.checkPermission(agentName, 'read')
         if (check.blocked && agent.isPrimary) {
-          // Even primary agents go to sub-sessions, but still need basic permissions
           this.kanban.addTask(phase as KanbanTask['phase'], agentName, item.target, item.action)
           continue
         }
 
-        // Deploy to visible sub-session with structured task
         await this.callAgent({
           agentName,
           objective: item.action,
@@ -356,7 +414,6 @@ export class PipelineOrchestrator {
       if (task.result) lines.push(`   ${task.result.slice(0, 100)}`)
     }
 
-    // Add sub-session summaries
     const subResults = this.collectSubSessionResults()
     if (subResults.length > 0 && subResults[0] !== 'No sub-session tasks deployed.') {
       lines.push('', '## Sub-Sessions')
