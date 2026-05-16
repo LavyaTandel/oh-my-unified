@@ -15,7 +15,7 @@ export function writeAgentFiles(
   const written: string[] = [];
 
   for (const agent of agents) {
-    const model = agent._modelArray?.[0]?.id ?? 'opencode/nemotron-3-super-free';
+    const model = agent._modelArray?.[0]?.id ?? agent.config.model ?? 'opencode/nemotron-3-super-free';
     const fallbackModels = agent._modelArray
       ?.slice(1)
       .map((m) => m.id)
@@ -24,20 +24,51 @@ export function writeAgentFiles(
     const description = agent.description ?? '';
     const mode = agent.config.mode ?? 'primary';
     const color = (agent.config as any).color ?? undefined;
+    const skills = (agent.config as any).skills ?? [];
+    const mcps = (agent.config as any).mcps ?? [];
 
-    const frontmatter = [
+    // Build frontmatter matching OpenCode's expected format
+    const frontmatterLines = [
       '---',
       `model: ${model}`,
-      ...(fallbackModels && fallbackModels.length > 0
-        ? [`fallback_models:\n${fallbackModels.map((m) => `  - ${m}`).join('\n')}`]
-        : []),
-      `description: "${description.replace(/"/g, '\\"')}"`,
-      `mode: ${mode}`,
-      ...(color ? [`color: ${color}`] : []),
-      '---',
-      '',
-    ].join('\n');
+      `display_name: "${displayName.replace(/"/g, '\\"')}"`,
+    ];
 
+    // fallback_models as YAML list
+    if (fallbackModels && fallbackModels.length > 0) {
+      frontmatterLines.push('fallback_models:');
+      for (const fm of fallbackModels) {
+        frontmatterLines.push(`  - ${fm}`);
+      }
+    }
+
+    frontmatterLines.push(`description: "${description.replace(/"/g, '\\"')}"`);
+    frontmatterLines.push(`mode: ${mode}`);
+
+    if (color) {
+      frontmatterLines.push(`color: ${color}`);
+    }
+
+    // Skills list
+    if (skills.length > 0) {
+      frontmatterLines.push('skills:');
+      for (const s of skills) {
+        frontmatterLines.push(`  - ${s}`);
+      }
+    }
+
+    // MCP list
+    if (mcps.length > 0) {
+      frontmatterLines.push('mcps:');
+      for (const m of mcps) {
+        frontmatterLines.push(`  - ${m}`);
+      }
+    }
+
+    frontmatterLines.push('---');
+    frontmatterLines.push('');
+
+    const frontmatter = frontmatterLines.join('\n');
     const content = frontmatter + `# ${displayName}\n\n${agent.config.prompt ?? ''}`;
     const filePath = path.join(agentDir, `${agent.name}.md`);
 

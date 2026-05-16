@@ -2488,24 +2488,45 @@ function writeAgentFiles(agents, directory) {
   }
   const written = [];
   for (const agent of agents) {
-    const model = agent._modelArray?.[0]?.id ?? "opencode/nemotron-3-super-free";
+    const model = agent._modelArray?.[0]?.id ?? agent.config.model ?? "opencode/nemotron-3-super-free";
     const fallbackModels = agent._modelArray?.slice(1).map((m) => m.id).filter(Boolean);
     const displayName = agent.displayName ?? `@${agent.name}`;
     const description = agent.description ?? "";
     const mode = agent.config.mode ?? "primary";
     const color = agent.config.color ?? undefined;
-    const frontmatter = [
+    const skills = agent.config.skills ?? [];
+    const mcps = agent.config.mcps ?? [];
+    const frontmatterLines = [
       "---",
       `model: ${model}`,
-      ...fallbackModels && fallbackModels.length > 0 ? [`fallback_models:
-${fallbackModels.map((m) => `  - ${m}`).join(`
-`)}`] : [],
-      `description: "${description.replace(/"/g, "\\\"")}"`,
-      `mode: ${mode}`,
-      ...color ? [`color: ${color}`] : [],
-      "---",
-      ""
-    ].join(`
+      `display_name: "${displayName.replace(/"/g, "\\\"")}"`
+    ];
+    if (fallbackModels && fallbackModels.length > 0) {
+      frontmatterLines.push("fallback_models:");
+      for (const fm of fallbackModels) {
+        frontmatterLines.push(`  - ${fm}`);
+      }
+    }
+    frontmatterLines.push(`description: "${description.replace(/"/g, "\\\"")}"`);
+    frontmatterLines.push(`mode: ${mode}`);
+    if (color) {
+      frontmatterLines.push(`color: ${color}`);
+    }
+    if (skills.length > 0) {
+      frontmatterLines.push("skills:");
+      for (const s of skills) {
+        frontmatterLines.push(`  - ${s}`);
+      }
+    }
+    if (mcps.length > 0) {
+      frontmatterLines.push("mcps:");
+      for (const m of mcps) {
+        frontmatterLines.push(`  - ${m}`);
+      }
+    }
+    frontmatterLines.push("---");
+    frontmatterLines.push("");
+    const frontmatter = frontmatterLines.join(`
 `);
     const content = frontmatter + `# ${displayName}
 
@@ -8937,6 +8958,197 @@ function createUnifiedHooks(ctx, config, hookConfig, runtimeChains, features) {
   };
 }
 
+// src/hooks/auto-slash-command.ts
+var AUTO_SLASH_COMMAND_TAG_OPEN = "<!-- oh-my-unified:slash-command -->";
+var AUTO_SLASH_COMMAND_TAG_CLOSE = "<!-- /oh-my-unified:slash-command -->";
+var SLASH_COMMAND_PATTERN = /^\/([a-zA-Z0-9_-]+)\s*([\s\S]*)$/;
+var OUR_COMMANDS = new Set([
+  "plan",
+  "assess",
+  "assemble",
+  "improvise",
+  "act",
+  "synthesize",
+  "health",
+  "status",
+  "diagnose",
+  "capabilities",
+  "onboarding",
+  "log",
+  "agents"
+]);
+var COMMAND_TEMPLATES = {
+  plan: {
+    command: "plan",
+    template: "Run the full pipeline: assess → assemble → improvise → act. Topic: {{args}}",
+    description: "Full end-to-end workflow with confidence gates"
+  },
+  assess: {
+    command: "assess",
+    template: "Phase 1: Conduct requirements assessment. Identify gaps, contradictions, and missing context.",
+    description: "Requirements assessment (confidence ≥6)"
+  },
+  assemble: {
+    command: "assemble",
+    template: "Phase 2: Deep research and architecture. Map dependencies, study documentation, deliberate on tradeoffs.",
+    description: "Deep research & architecture (confidence ≥8)"
+  },
+  improvise: {
+    command: "improvise",
+    template: "Phase 3: Critique and refine. Perform adversarial review, check quality, refine approach. Continue until user is satisfied.",
+    description: "Critique & refine (loop until satisfied)"
+  },
+  act: {
+    command: "act",
+    template: "Phase 4: Execute the plan. Build, fix, and design with confidence ≥9.",
+    description: "Execute the plan (confidence ≥9)"
+  },
+  synthesize: {
+    command: "synthesize",
+    template: "Synthesize all agent results into a single report.",
+    description: "Deploy all agents, one report"
+  },
+  health: {
+    command: "health",
+    template: "Run system health check. Report overall status, component health, warnings, and errors.",
+    description: "System Observer health report"
+  },
+  status: {
+    command: "status",
+    template: "Show pipeline status: conductor, phase, confidence, kanban tasks, and sub-sessions.",
+    description: "Pipeline status and progress"
+  },
+  diagnose: {
+    command: "diagnose",
+    template: "Run 12 parallel system health checks: plugin bootstrap, agent registration, MCP connectivity, TUI status, interview engine, circuit breakers, plugin registry, integrations.",
+    description: "12 parallel system health checks"
+  },
+  capabilities: {
+    command: "capabilities",
+    template: "List all plugin capabilities grouped by category: agents, hooks, tools, MCPs, features.",
+    description: "Dynamic capability listing"
+  },
+  onboarding: {
+    command: "onboarding",
+    template: "Show interactive welcome menu with contextual guidance for first-time users.",
+    description: "First-run interactive guide"
+  },
+  log: {
+    command: "log",
+    template: "Query the transparency log. {{args}}",
+    description: "Transparency log query (recent, stats, by type, by session)"
+  },
+  agents: {
+    command: "agents",
+    template: "List all active agents with their models, roles, and status.",
+    description: "List all active agents"
+  }
+};
+function parseSlashCommand(text) {
+  const trimmed = text.trim();
+  if (!trimmed.startsWith("/"))
+    return null;
+  const match = trimmed.match(SLASH_COMMAND_PATTERN);
+  if (!match)
+    return null;
+  return {
+    command: match[1].toLowerCase(),
+    args: (match[2] || "").trim(),
+    raw: trimmed
+  };
+}
+function removeCodeBlocks(text) {
+  return text.replace(/```[\s\S]*?```/g, "");
+}
+function findSlashCommandPartIndex(parts) {
+  for (let i = 0;i < parts.length; i++) {
+    if (parts[i].type === "text" && parts[i].text?.trim().startsWith("/")) {
+      return i;
+    }
+  }
+  return -1;
+}
+function extractPromptText(parts) {
+  return parts.filter((p) => p.type === "text").map((p) => p.text ?? "").join(" ").trim();
+}
+function createAutoSlashCommandHook(_ctx, _config) {
+  const processedCommands = new Map;
+  return {
+    "chat.message": async (input, output) => {
+      const promptText = extractPromptText(output.parts);
+      const textWithoutCodeBlocks = removeCodeBlocks(promptText);
+      if (!textWithoutCodeBlocks.trim().startsWith("/"))
+        return;
+      if (promptText.includes(AUTO_SLASH_COMMAND_TAG_OPEN) || promptText.includes(AUTO_SLASH_COMMAND_TAG_CLOSE)) {
+        return;
+      }
+      const parsed = parseSlashCommand(textWithoutCodeBlocks);
+      if (!parsed)
+        return;
+      if (!OUR_COMMANDS.has(parsed.command))
+        return;
+      const commandKey = input.messageID ? `${input.sessionID}:${input.messageID}:${parsed.command}` : `${input.sessionID}:${parsed.command}`;
+      if (processedCommands.has(commandKey))
+        return;
+      processedCommands.set(commandKey, true);
+      const template = COMMAND_TEMPLATES[parsed.command];
+      if (!template)
+        return;
+      const replacementText = template.template.replace("{{args}}", parsed.args);
+      const taggedContent = `${AUTO_SLASH_COMMAND_TAG_OPEN}
+${replacementText}
+${AUTO_SLASH_COMMAND_TAG_CLOSE}`;
+      const idx = findSlashCommandPartIndex(output.parts);
+      if (idx < 0)
+        return;
+      output.parts[idx].text = taggedContent;
+      log("[auto-slash-command] Replaced message with command template", {
+        sessionID: input.sessionID,
+        command: parsed.command
+      });
+    },
+    "command.execute.before": async (input, output) => {
+      const normalizedCommand = input.command.toLowerCase();
+      if (!OUR_COMMANDS.has(normalizedCommand))
+        return;
+      const commandKey = `${input.sessionID}:cmd:${normalizedCommand}:${input.arguments || ""}`;
+      if (processedCommands.has(commandKey))
+        return;
+      processedCommands.set(commandKey, true);
+      const template = COMMAND_TEMPLATES[normalizedCommand];
+      if (!template)
+        return;
+      const replacementText = template.template.replace("{{args}}", input.arguments);
+      const taggedContent = `${AUTO_SLASH_COMMAND_TAG_OPEN}
+${replacementText}
+${AUTO_SLASH_COMMAND_TAG_CLOSE}`;
+      const idx = findSlashCommandPartIndex(output.parts);
+      if (idx >= 0) {
+        output.parts[idx].text = taggedContent;
+      } else {
+        output.parts.unshift({ type: "text", text: taggedContent });
+      }
+      log("[auto-slash-command] command.execute.before - injected template", {
+        sessionID: input.sessionID,
+        command: normalizedCommand
+      });
+    },
+    event: async (input) => {
+      if (input.event.type === "session.deleted") {
+        const props = input.event.properties;
+        const sessionID = props?.sessionID ?? props?.info?.id;
+        if (sessionID) {
+          for (const key of processedCommands.keys()) {
+            if (key.startsWith(`${sessionID}:`)) {
+              processedCommands.delete(key);
+            }
+          }
+        }
+      }
+    }
+  };
+}
+
 // src/tools/subtask.ts
 var state2 = new Map;
 function createSubtaskState() {
@@ -11548,6 +11760,7 @@ var OhMyUnified = async (ctx) => {
   let omPlanHook;
   let omAuditHook;
   let pipelineCommandHandler;
+  let autoSlashCommandHook;
   let unifiedHooks;
   let toolCount = 0;
   let systemObserver;
@@ -11630,6 +11843,7 @@ var OhMyUnified = async (ctx) => {
     transparencyLog = createTransparencyLog();
     omPlanHook = createOmPlanHook(ctx, config, { transparencyLog });
     omAuditHook = createOmAuditHook(ctx, config, { transparencyLog });
+    autoSlashCommandHook = createAutoSlashCommandHook(ctx, config);
     pipelineCommandHandler = createPipelineCommandHandler(ctx, config, systemObserver);
     systemObserver = new SystemObserver;
     systemObserver.start();
@@ -11769,6 +11983,10 @@ var OhMyUnified = async (ctx) => {
   return {
     name: "oh-my-unified",
     ...unifiedHooks,
+    "chat.message": async (input, output) => {
+      await autoSlashCommandHook["chat.message"](input, output);
+      await unifiedHooks["chat.message"]?.(input, output);
+    },
     agent: agents,
     tools: {
       webfetch: {
@@ -11805,6 +12023,7 @@ var OhMyUnified = async (ctx) => {
     mcp: mcps,
     config: async (_opencodeConfig) => {},
     "command.execute.before": async (input, output) => {
+      await autoSlashCommandHook["command.execute.before"](input, output);
       await omPlanHook.handleCommandExecuteBefore(input, output);
       await omAuditHook.handleCommandExecuteBefore(input, output);
       await pipelineCommandHandler.handleCommand(input, output);

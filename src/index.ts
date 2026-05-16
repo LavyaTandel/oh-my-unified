@@ -16,6 +16,7 @@ import {
   createUnifiedHooks,
   type SynthesizedHooksConfig,
 } from './hooks/delegation';
+import { createAutoSlashCommandHook } from './hooks/auto-slash-command';
 import {
   createSubtaskCommandManager,
   createSubtaskState,
@@ -104,6 +105,7 @@ const OhMyUnified: Plugin = async (ctx) => {
   let omPlanHook: ReturnType<typeof createOmPlanHook>;
   let omAuditHook: ReturnType<typeof createOmAuditHook>;
   let pipelineCommandHandler: ReturnType<typeof createPipelineCommandHandler>;
+  let autoSlashCommandHook: ReturnType<typeof createAutoSlashCommandHook>;
   let unifiedHooks: ReturnType<typeof createUnifiedHooks>;
   let toolCount = 0;
 
@@ -220,6 +222,9 @@ const OhMyUnified: Plugin = async (ctx) => {
     // Slash command hooks
     omPlanHook = createOmPlanHook(ctx, config, { transparencyLog });
     omAuditHook = createOmAuditHook(ctx, config, { transparencyLog });
+
+    // Auto-slash-command hook — detects /command in chat.message, replaces with template
+    autoSlashCommandHook = createAutoSlashCommandHook(ctx, config);
 
     // Pipeline command handler for /plan, /assess, /assemble, /improvise, /act, /synthesize, /health, /status
     pipelineCommandHandler = createPipelineCommandHandler(ctx, config, systemObserver!);
@@ -431,6 +436,19 @@ return {
     // chat.message, etc.)
     ...unifiedHooks,
 
+    // Auto-slash-command hook — wire into chat.message and command.execute.before
+    // This detects /command in user text and replaces with template
+    'chat.message': async (
+      input: { sessionID: string; agent?: string; model?: { providerID: string; modelID: string }; messageID?: string },
+      output: { message: unknown; parts: Array<{ type: string; text?: string }> },
+    ): Promise<void> => {
+      // Run auto-slash-command first — detects /command and replaces with template
+      await autoSlashCommandHook['chat.message'](input, output);
+
+      // Then run unified hooks (agent selector, learning, etc.)
+      await (unifiedHooks as any)['chat.message']?.(input, output);
+    },
+
     agent: agents,
 
     tools: {
@@ -476,14 +494,19 @@ return {
       input: { command: string; sessionID: string; arguments: string },
       output: { parts: Array<{ type: string; text?: string }> },
     ): Promise<void> => {
+      // Auto-slash-command fallback — handle our commands when OpenCode processes them natively
+      await autoSlashCommandHook['command.execute.before'](input, output);
+
+      // om-plan and om-audit — only handle their specific commands
       await omPlanHook.handleCommandExecuteBefore(input, output);
       await omAuditHook.handleCommandExecuteBefore(input, output);
 
-      // Pipeline commands: /plan, /assess, /assemble, /improvise, /act, /synthesize, /health, /status
+      // Pipeline commands — only handle OUR commands
       await pipelineCommandHandler.handleCommand(input, output);
 
-      // Trust & Discovery commands
+      // Trust & Discovery commands — ONLY handle ours, don't hijack others
       const cmd = input.command.toLowerCase();
+
       if (cmd === 'diagnose') {
         const report = await diagnosticsChecker.runAll();
         output.parts.length = 0;
@@ -551,6 +574,8 @@ return {
         });
         return;
       }
+
+      // Don't hijack other plugins' commands — return without modifying output
     },
   };
 };
