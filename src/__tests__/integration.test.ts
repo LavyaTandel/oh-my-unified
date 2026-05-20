@@ -119,6 +119,8 @@ describe('1. Task persistence across restart', () => {
 describe('2. MCP Bus health', () => {
   it('should create McpBus with default servers, connectAll, and report health without throwing', async () => {
     const bus = new McpBus(DEFAULT_MCP_SERVERS);
+    (bus as any).pingServer = async () => true;
+    (bus as any).connectRemoteMcp = async () => {};
 
     // connectAll should not throw
     let statuses: import('../mcp-bus').McpHealthStatus[];

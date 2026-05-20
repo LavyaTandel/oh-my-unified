@@ -1,0 +1,1 @@
+{"version":3,"file":"truncate-description.js","sourceRoot":"","sources":["../../src/shared/truncate-description.ts"],"names":[],"mappings":"AAAA,MAAM,UAAU,mBAAmB,CAAC,IAAY,EAAE,MAAM,GAAG,EAAE;IAC3D,IAAI,IAAI,CAAC,MAAM,IAAI,MAAM;QAAE,OAAO,IAAI,CAAA;IACtC,OAAO,IAAI,CAAC,KAAK,CAAC,CAAC,EAAE,MAAM,GAAG,CAAC,CAAC,GAAG,KAAK,CAAA;AAC1C,CAAC"}

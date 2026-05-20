@@ -7,6 +7,7 @@ import {
   getAgentOverride,
   getCustomAgentNames,
   LOOM_PRESET,
+  PRIMARY_AGENT_NAMES,
   PROTECTED_AGENTS,
   SUBAGENT_NAMES,
 } from '../config';
@@ -38,6 +39,21 @@ type AgentFactory = (
 
 const COUNCIL_TOOL_ALLOWED_AGENTS = new Set(['forseti']);
 const SAFE_AGENT_ALIAS_RE = /^[a-z][a-z0-9_-]*$/i;
+
+const PRIMARY_SET = new Set(PRIMARY_AGENT_NAMES);
+const SUBAGENT_SET = new Set(SUBAGENT_NAMES);
+
+function applyAgentMode(name: string, sdkConfig: Record<string, unknown>): void {
+  if (name === 'odin' || name === 'njord') {
+    sdkConfig.mode = 'primary';
+  } else if (PRIMARY_SET.has(name as any)) {
+    sdkConfig.mode = 'all';
+  } else if (SUBAGENT_SET.has(name as any)) {
+    sdkConfig.mode = 'subagent';
+  } else {
+    sdkConfig.mode = 'subagent';
+  }
+}
 
 function normalizeDisplayName(displayName: string): string {
   const trimmed = displayName.trim();
@@ -209,14 +225,30 @@ export function getAgentConfigs(
   catalog?: McpSkillCatalog,
 ): Record<string, any> {
   const agents = createAgents(config, catalog);
-  const configs: Record<string, any> = {};
+  const entries: [string, Record<string, unknown>][] = [];
+
   for (const agent of agents) {
-    configs[agent.name] = agent.config;
-    if (agent.displayName) {
-      configs[agent.name].displayName = agent.displayName;
+    const sdkConfig: Record<string, unknown> = {
+      ...agent.config,
+      description: agent.description || '',
+      mcps: getAgentMcpList(agent.name, config) ?? agent.config.mcps,
+    };
+
+    applyAgentMode(agent.name, sdkConfig);
+
+    const displayName = agent.displayName
+      ? normalizeDisplayName(agent.displayName)
+      : agent.name;
+
+    if (displayName && displayName !== agent.name && isSafeDisplayName(displayName)) {
+      entries.push([displayName, { ...sdkConfig, mode: sdkConfig.mode }]);
+      entries.push([agent.name, { ...sdkConfig, hidden: true }]);
+    } else {
+      entries.push([agent.name, sdkConfig]);
     }
   }
-  return configs;
+
+  return Object.fromEntries(entries);
 }
 
 export function getDisabledAgents(

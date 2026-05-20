@@ -9,6 +9,7 @@ import type {
   ComponentName,
 } from './types'
 import { COMPONENT_NAMES, DEFAULT_CHECK_INTERVAL_MS } from './types'
+import { log } from '../../utils/logger'
 
 export type { ComponentHealth, SystemReport, SystemObserverEvents, ComponentName }
 export { COMPONENT_NAMES, DEFAULT_CHECK_INTERVAL_MS }
@@ -25,11 +26,7 @@ interface ComponentSpec {
 // ── Default health probes ──────────────────────────────────────────────
 
 function defaultPluginBootstrapCheck(): ComponentHealth {
-  // Probes whether the @opencode-ai/plugin package is available.
-  // In a real runtime this would check ctx.client.app or similar.
   try {
-    // We resolve the import specifier at runtime; if the plugin host
-    // has it loaded the require/bun-import will succeed.
     const pluginAvail = !!globalThis.process?.versions?.node
     return {
       name: 'plugin-bootstrap',
@@ -48,9 +45,6 @@ function defaultPluginBootstrapCheck(): ComponentHealth {
 }
 
 function defaultTaskRegistryCheck(): ComponentHealth {
-  // Probes whether the TaskRegistry (SQLite-backed) is functional.
-  // When a registry reference is injected via setComponentInstance,
-  // this check runs an actual read probe.
   return {
     name: 'task-registry',
     status: 'healthy',
@@ -64,7 +58,7 @@ function defaultMcpBusCheck(): ComponentHealth {
     name: 'mcp-bus',
     status: 'healthy',
     lastCheck: Date.now(),
-    details: { configuredMcps: 13 }, // matches DEFAULT_MCP_SERVERS count
+    details: { configuredMcps: 13 },
   }
 }
 
@@ -175,12 +169,12 @@ export class SystemObserver {
 
     // Run one check immediately
     this.runHealthCheck().catch((err) => {
-      console.error(`[SystemObserver] Initial health check failed:`, err)
+      log('[SystemObserver] Initial health check failed', { error: String(err) })
     })
 
     this.interval = setInterval(() => {
       this.runHealthCheck().catch((err) => {
-        console.error(`[SystemObserver] Periodic health check failed:`, err)
+        log('[SystemObserver] Periodic health check failed', { error: String(err) })
       })
     }, ms)
   }
@@ -215,10 +209,12 @@ export class SystemObserver {
         // Detect status transitions
         if (prev && prev.status !== health.status) {
           this.events.onStatusChange?.(name, prev.status, health.status)
-          console.warn(
-            `[SystemObserver] ${name}: ${prev.status} → ${health.status}` +
-              (health.lastError ? ` (${health.lastError})` : ''),
-          )
+          log('[SystemObserver] component status changed', {
+            component: name,
+            from: prev.status,
+            to: health.status,
+            error: health.lastError,
+          })
         }
 
         this.health.set(name, health)
@@ -287,12 +283,15 @@ export class SystemObserver {
       activitySnapshot[agent] = { ...data }
     }
 
-    console.info(
-      `[SystemObserver] Health check — ${overall.toUpperCase()}` +
-        `  (${results.filter((r) => r.status === 'healthy').length}/${results.length} healthy)` +
-        `  tasks:${this.runningTasks}  mcps:${this.connectedMcps}` +
-        `  ⚠${this.warnings.length}  ✗${this.errors.length}`,
-    )
+    log('[SystemObserver] health check complete', {
+      overall,
+      healthy: results.filter((r) => r.status === 'healthy').length,
+      total: results.length,
+      tasks: this.runningTasks,
+      mcps: this.connectedMcps,
+      warnings: this.warnings.length,
+      errors: this.errors.length,
+    })
 
     const report: SystemReport = {
       timestamp: Date.now(),

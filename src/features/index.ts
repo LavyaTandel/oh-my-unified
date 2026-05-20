@@ -20,3 +20,8 @@ export type { KanbanStatus, KanbanTask, KanbanReport } from './kanban';
 
 // Pipeline Connector
 export { PipelineOrchestrator } from './pipeline';
+
+// Cost Optimizer
+export { CostOptimizer, createCostOptimizer } from './cost-optimizer';
+export type { ModelCapability, ModelDefinition, OptimizationResult } from './cost-optimizer';
+

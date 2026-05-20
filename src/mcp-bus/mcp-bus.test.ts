@@ -24,6 +24,8 @@ describe('McpBus', () => {
       { name: 'alpha', type: 'local', command: ['echo', 'a'], enabled: true },
       { name: 'beta', type: 'remote', url: 'http://localhost:9999', enabled: false },
     ]);
+    (bus as any).pingServer = async () => true;
+    (bus as any).connectRemoteMcp = async () => {};
 
     const results = await bus.connectAll();
     expect(results.length).toBe(2);
@@ -43,6 +45,8 @@ describe('McpBus', () => {
 
   test('4. healthCheck returns statuses', async () => {
     const bus = new McpBus(DEFAULT_MCP_SERVERS);
+    (bus as any).pingServer = async () => true;
+    (bus as any).connectRemoteMcp = async () => {};
     const statuses = await bus.healthCheck();
     expect(statuses.length).toBeGreaterThan(0);
     // All default servers are enabled, so all should be online
@@ -57,6 +61,8 @@ describe('McpBus', () => {
       { name: 'enabled-srv', type: 'local', command: ['echo'], enabled: true },
       { name: 'disabled-srv', type: 'local', command: ['echo'], enabled: false },
     ]);
+    (bus as any).pingServer = async () => true;
+    (bus as any).connectRemoteMcp = async () => {};
 
     // Before connectAll, no servers are online
     expect(bus.getOnlineServers().length).toBe(0);
@@ -71,6 +77,8 @@ describe('McpBus', () => {
 
   test('6. startHealthMonitor sets up interval', async () => {
     const bus = new McpBus(DEFAULT_MCP_SERVERS);
+    (bus as any).pingServer = async () => true;
+    (bus as any).connectRemoteMcp = async () => {};
     bus.startHealthMonitor(60000);
 
     // Check getHealth returns data after connectAll runs first

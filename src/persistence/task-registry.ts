@@ -239,6 +239,10 @@ export class TaskRegistry {
       });
   }
 
+  clearMessages(taskId: string): void {
+    this.db.prepare('DELETE FROM task_messages WHERE task_id = $taskId').run({ $taskId: taskId });
+  }
+
   getMessages(taskId: string): TaskMessage[] {
     const rows = this.db
       .prepare<DbMessageRow>(

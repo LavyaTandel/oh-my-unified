@@ -179,6 +179,36 @@ export class PersistentTaskEngine {
     return this.registry.listRunningTasks();
   }
 
+  getRegistry(): TaskRegistry {
+    return this.registry;
+  }
+
+  /**
+   * Sync chat messages from active OpenCode session to SQLite TaskRegistry.
+   */
+  async syncSessionMessages(taskId: string, sessionId: string, client: SessionClient): Promise<void> {
+    if (this._shutdown) return;
+    try {
+      const data = await client.session?.read?.(sessionId);
+      if (data && Array.isArray(data.messages)) {
+        this.registry.clearMessages(taskId);
+        for (const msg of data.messages) {
+          this.registry.addMessage(taskId, msg.role, msg.content);
+        }
+        // Cache the final content if available
+        const assistantMsgs = data.messages.filter((m) => m.role === 'assistant');
+        if (assistantMsgs.length > 0) {
+          const finalMsg = assistantMsgs[assistantMsgs.length - 1];
+          this.registry.updateStatus(taskId, 'running', {
+            outputCache: finalMsg.content,
+          });
+        }
+      }
+    } catch (err) {
+      // Best effort message syncing
+    }
+  }
+
   /**
    * Get task count statistics.
    */
@@ -198,8 +228,16 @@ export class PersistentTaskEngine {
    *
    * NEVER drops events. Always defers if too early.
    */
-  onSessionIdle(taskId: string, sessionId: string, elapsedMs: number): 'deferred' | 'coalesced' | 'completed' | 'still-running' {
+  onSessionIdle(
+    taskId: string,
+    sessionId: string,
+    elapsedMs: number,
+    client?: SessionClient,
+  ): 'deferred' | 'coalesced' | 'completed' | 'still-running' {
     if (this._shutdown) return 'still-running';
+    if (client) {
+      this.syncSessionMessages(taskId, sessionId, client).catch(() => {});
+    }
     return this.detector.onSessionIdle(taskId, sessionId, elapsedMs);
   }
 

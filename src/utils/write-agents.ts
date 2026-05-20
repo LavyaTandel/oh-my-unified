@@ -1,12 +1,33 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import type { AgentDefinition } from '../agents/orchestrator';
+import { PRIMARY_AGENT_NAMES, SUBAGENT_NAMES } from '../config';
+
+const PRIMARY_SET = new Set(PRIMARY_AGENT_NAMES);
+const SUBAGENT_SET = new Set(SUBAGENT_NAMES);
+
+function resolveAgentMode(name: string): string {
+  if (name === 'odin' || name === 'njord') return 'primary';
+  if (PRIMARY_SET.has(name as any)) return 'all';
+  if (SUBAGENT_SET.has(name as any)) return 'subagent';
+  return 'subagent';
+}
 
 export function writeAgentFiles(
   agents: AgentDefinition[],
   directory: string,
 ): string[] {
-  const agentDir = path.join(directory, '.opencode', 'agent');
+  const agentDir = path.join(directory, '.opencode', 'agents');
+  const legacyDir = path.join(directory, '.opencode', 'agent');
+
+  // Clean up legacy directory if it exists to resolve duplication
+  if (fs.existsSync(legacyDir)) {
+    try {
+      fs.rmSync(legacyDir, { recursive: true, force: true });
+    } catch {
+      // Best effort cleanup
+    }
+  }
 
   if (!fs.existsSync(agentDir)) {
     fs.mkdirSync(agentDir, { recursive: true });
@@ -20,21 +41,19 @@ export function writeAgentFiles(
       ?.slice(1)
       .map((m) => m.id)
       .filter(Boolean);
-    const displayName = agent.displayName ?? `@${agent.name}`;
+    const displayName = agent.displayName ?? agent.name;
     const description = agent.description ?? '';
-    const mode = agent.config.mode ?? 'primary';
+    const mode = resolveAgentMode(agent.name);
     const color = (agent.config as any).color ?? undefined;
     const skills = (agent.config as any).skills ?? [];
     const mcps = (agent.config as any).mcps ?? [];
 
-    // Build frontmatter matching OpenCode's expected format
     const frontmatterLines = [
       '---',
       `model: ${model}`,
       `display_name: "${displayName.replace(/"/g, '\\"')}"`,
     ];
 
-    // fallback_models as YAML list
     if (fallbackModels && fallbackModels.length > 0) {
       frontmatterLines.push('fallback_models:');
       for (const fm of fallbackModels) {
@@ -49,7 +68,6 @@ export function writeAgentFiles(
       frontmatterLines.push(`color: ${color}`);
     }
 
-    // Skills list
     if (skills.length > 0) {
       frontmatterLines.push('skills:');
       for (const s of skills) {
@@ -57,7 +75,6 @@ export function writeAgentFiles(
       }
     }
 
-    // MCP list
     if (mcps.length > 0) {
       frontmatterLines.push('mcps:');
       for (const m of mcps) {

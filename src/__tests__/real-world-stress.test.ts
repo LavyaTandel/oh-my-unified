@@ -325,7 +325,7 @@ describe('Real-World Stress Test — All Feature Modules', () => {
         timestamp: Date.now() + i,
       });
       tlog.record({
-        type: ['model_routing', 'decision', 'prediction_made'][i % 3],
+        type: ['model_routing', 'decision', 'prediction_made'][i % 3] as any,
         sessionId: session,
         message: `Operation ${i}`,
         confidence: success ? 0.85 : 0.3,

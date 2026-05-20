@@ -1,9 +1,6 @@
-import type { McpConfig } from './types';
+import type { McpLocalConfig } from './types';
 
-export const context7: McpConfig = {
-  name: 'context7',
-  type: 'mcp',
-  command: 'npx',
-  args: ['-y', '@anthropic-ai/context7-mcp@latest'],
-  env: {},
+export const context7: McpLocalConfig = {
+  type: 'local',
+  command: ['npx', '-y', '@anthropic-ai/context7-mcp@latest'],
 };

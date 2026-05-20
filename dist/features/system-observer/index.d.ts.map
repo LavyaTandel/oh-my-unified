@@ -1,0 +1,1 @@
+{"version":3,"file":"index.d.ts","sourceRoot":"","sources":["../../../src/features/system-observer/index.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,cAAc,EAAE,MAAM,YAAY,CAAA;AAC3C,YAAY,EAAE,aAAa,EAAE,MAAM,YAAY,CAAA;AAC/C,YAAY,EACV,eAAe,EACf,YAAY,EACZ,oBAAoB,EACpB,aAAa,GACd,MAAM,SAAS,CAAA;AAChB,OAAO,EAAE,eAAe,EAAE,yBAAyB,EAAE,MAAM,SAAS,CAAA"}

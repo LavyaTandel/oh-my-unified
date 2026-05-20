@@ -19,14 +19,14 @@ var __require = /* @__PURE__ */ createRequire(import.meta.url);
 // src/utils/sqlite.ts
 var exports_sqlite = {};
 __export(exports_sqlite, {
-  Database: () => Database
+  Database: () => TypedDatabase
 });
 import { createRequire as createRequire3 } from "node:module";
-var Database;
+var DatabaseImpl, TypedDatabase;
 var init_sqlite = __esm(() => {
   if (typeof globalThis.Bun !== "undefined") {
     const req = createRequire3(import.meta.url);
-    Database = req("bun:sqlite").Database;
+    DatabaseImpl = req("bun:sqlite").Database;
   } else {
     const req = createRequire3(import.meta.url);
     let usable = false;
@@ -37,7 +37,7 @@ var init_sqlite = __esm(() => {
       testDb.prepare("SELECT 1").get();
       testDb.close();
       usable = true;
-      Database = class extends BDatabase {
+      DatabaseImpl = class extends BDatabase {
         run(sql, ...params) {
           const stmt = this.prepare(sql);
           if (params.length === 1 && typeof params[0] === "object" && params[0] !== null) {
@@ -48,7 +48,7 @@ var init_sqlite = __esm(() => {
       };
     } catch {
       if (!usable) {
-        Database = class {
+        DatabaseImpl = class {
           constructor(_path) {}
           run() {
             return { changes: 0, lastInsertRowid: 0 };
@@ -67,6 +67,7 @@ var init_sqlite = __esm(() => {
       }
     }
   }
+  TypedDatabase = DatabaseImpl;
 });
 
 // src/tui/state.ts
@@ -498,6 +499,9 @@ function stopTui() {
 function isRunning() {
   return unmount !== null;
 }
+// src/index.ts
+import { tool } from "@opencode-ai/plugin/tool";
+
 // src/config/constants.ts
 var PRIMARY_AGENT_NAMES = [
   "odin",
@@ -2156,9 +2160,26 @@ ${customAppendPrompt}`;
 
 // src/agents/index.ts
 var COUNCIL_TOOL_ALLOWED_AGENTS = new Set(["forseti"]);
+var SAFE_AGENT_ALIAS_RE = /^[a-z][a-z0-9_-]*$/i;
+var PRIMARY_SET = new Set(PRIMARY_AGENT_NAMES);
+var SUBAGENT_SET = new Set(SUBAGENT_NAMES);
+function applyAgentMode(name, sdkConfig) {
+  if (name === "odin" || name === "njord") {
+    sdkConfig.mode = "primary";
+  } else if (PRIMARY_SET.has(name)) {
+    sdkConfig.mode = "all";
+  } else if (SUBAGENT_SET.has(name)) {
+    sdkConfig.mode = "subagent";
+  } else {
+    sdkConfig.mode = "subagent";
+  }
+}
 function normalizeDisplayName(displayName) {
   const trimmed = displayName.trim();
   return trimmed.startsWith("@") ? trimmed.slice(1) : trimmed;
+}
+function isSafeDisplayName(displayName) {
+  return SAFE_AGENT_ALIAS_RE.test(displayName);
 }
 function applyOverrides(agent, override) {
   if (override.model) {
@@ -2267,14 +2288,23 @@ function createAgents(config, catalog) {
 }
 function getAgentConfigs(config, catalog) {
   const agents = createAgents(config, catalog);
-  const configs = {};
+  const entries = [];
   for (const agent of agents) {
-    configs[agent.name] = agent.config;
-    if (agent.displayName) {
-      configs[agent.name].displayName = agent.displayName;
+    const sdkConfig = {
+      ...agent.config,
+      description: agent.description || "",
+      mcps: getAgentMcpList(agent.name, config) ?? agent.config.mcps
+    };
+    applyAgentMode(agent.name, sdkConfig);
+    const displayName = agent.displayName ? normalizeDisplayName(agent.displayName) : agent.name;
+    if (displayName && displayName !== agent.name && isSafeDisplayName(displayName)) {
+      entries.push([displayName, { ...sdkConfig, mode: sdkConfig.mode }]);
+      entries.push([agent.name, { ...sdkConfig, hidden: true }]);
+    } else {
+      entries.push([agent.name, sdkConfig]);
     }
   }
-  return configs;
+  return Object.fromEntries(entries);
 }
 function getDisabledAgents(config) {
   return new Set(config?.disabled_agents ?? []);
@@ -2282,100 +2312,77 @@ function getDisabledAgents(config) {
 
 // src/mcp/context7.ts
 var context7 = {
-  name: "context7",
-  type: "mcp",
-  command: "npx",
-  args: ["-y", "@anthropic-ai/context7-mcp@latest"],
-  env: {}
+  type: "local",
+  command: ["npx", "-y", "@anthropic-ai/context7-mcp@latest"]
 };
 
 // src/mcp/grep-app.ts
 var grep_app = {
-  name: "grep_app",
-  type: "mcp",
-  command: "npx",
-  args: ["-y", "@anthropic-ai/grep-mcp@latest"],
-  env: {}
+  type: "remote",
+  url: "https://mcp.grep.app",
+  enabled: true
 };
 
 // src/mcp/websearch.ts
-function createWebsearchConfig(config) {
-  const provider = config?.provider ?? "exa";
-  if (provider === "tavily") {
-    return {
-      name: "websearch",
-      type: "mcp",
-      command: "npx",
-      args: ["-y", "@anthropic-ai/tavily-mcp@latest"],
-      env: config?.apiKey ? { TAVILY_API_KEY: config.apiKey } : {}
-    };
-  }
-  return {
-    name: "websearch",
-    type: "mcp",
-    command: "npx",
-    args: ["-y", "@anthropic-ai/exa-mcp@latest"],
-    env: config?.apiKey ? { EXA_API_KEY: config.apiKey } : {}
-  };
-}
-var websearch = createWebsearchConfig();
+var websearch = {
+  type: "remote",
+  url: "https://mcp.exa.ai/mcp",
+  enabled: true
+};
 
 // src/mcp/index.ts
+function localMcp(pkg) {
+  return {
+    type: "local",
+    command: ["npx", "-y", pkg],
+    enabled: true
+  };
+}
 var allBuiltinMcps = {
-  websearch: createWebsearchConfig(),
+  websearch,
   context7,
   grep_app,
-  clawdi: { name: "clawdi", type: "stdio", command: "npx", args: ["-y", "@opencode-ai/clawdi-mcp"], env: {} },
-  gbrain: { name: "gbrain", type: "stdio", command: "npx", args: ["-y", "gbrain-mcp"], env: {} },
-  "context-mode": { name: "context-mode", type: "stdio", command: "npx", args: ["-y", "@opencode-ai/context-mode-mcp"], env: {} },
-  "code-review-graph": { name: "code-review-graph", type: "stdio", command: "npx", args: ["-y", "code-review-graph-mcp"], env: {} },
-  gitnexus: { name: "gitnexus", type: "stdio", command: "npx", args: ["-y", "gitnexus-mcp"], env: {} },
-  "loom-mcp": { name: "loom-mcp", type: "stdio", command: "npx", args: ["-y", "@opencode-ai/loom-mcp"], env: {} },
-  openspace: { name: "openspace", type: "stdio", command: "npx", args: ["-y", "@opencode-ai/openspace-mcp"], env: {} },
-  exa: { name: "exa", type: "stdio", command: "npx", args: ["-y", "@opencode-ai/exa-mcp"], env: {} },
-  gh_grep: { name: "gh_grep", type: "stdio", command: "npx", args: ["-y", "@opencode-ai/gh-grep-mcp"], env: {} },
-  deepwiki: { name: "deepwiki", type: "stdio", command: "npx", args: ["-y", "@opencode-ai/deepwiki-mcp"], env: {} },
-  "sequential-thinking": { name: "sequential-thinking", type: "stdio", command: "npx", args: ["-y", "@opencode-ai/sequential-thinking-mcp"], env: {} },
-  "agent-browser": { name: "agent-browser", type: "stdio", command: "npx", args: ["-y", "@opencode-ai/agent-browser-mcp"], env: {} }
+  clawdi: localMcp("@opencode-ai/clawdi-mcp"),
+  gbrain: localMcp("gbrain-mcp"),
+  "context-mode": localMcp("@opencode-ai/context-mode-mcp"),
+  "code-review-graph": localMcp("code-review-graph-mcp"),
+  gitnexus: localMcp("gitnexus-mcp"),
+  "loom-mcp": localMcp("@opencode-ai/loom-mcp"),
+  openspace: localMcp("@opencode-ai/openspace-mcp"),
+  exa: { type: "remote", url: "https://mcp.exa.ai/mcp", enabled: true },
+  gh_grep: { type: "remote", url: "https://mcp.grep.app", enabled: true },
+  deepwiki: localMcp("@opencode-ai/deepwiki-mcp"),
+  "sequential-thinking": localMcp("@opencode-ai/sequential-thinking-mcp"),
+  "agent-browser": localMcp("@opencode-ai/agent-browser-mcp")
 };
-function mcpServerToConfig(server) {
-  if (server.type === "local" && server.command) {
-    const [cmd, ...args] = server.command;
-    return {
-      name: server.name,
-      type: "stdio",
-      command: cmd,
-      args,
-      env: {}
-    };
-  }
-  if (server.type === "remote" && server.url) {
-    return {
-      name: server.name,
-      type: "sse",
-      url: server.url
-    };
-  }
-  return { name: server.name, type: "stdio", command: "npx", args: ["-y", server.name], env: {} };
-}
-function createBuiltinMcps(disabledMcps = [], websearchConfig, mergedMcpServers) {
+function createBuiltinMcps(disabledMcps = [], mergedMcpServers) {
   const mcps = {};
-  for (const [name, config] of Object.entries(allBuiltinMcps)) {
-    if (!disabledMcps.includes(name)) {
-      mcps[name] = config;
-    }
-  }
-  if (mergedMcpServers) {
+  if (mergedMcpServers && mergedMcpServers.length > 0) {
     for (const server of mergedMcpServers) {
-      if (!server.enabled)
-        continue;
       if (disabledMcps.includes(server.name))
         continue;
-      mcps[server.name] = mcpServerToConfig(server);
+      if (server.enabled === false)
+        continue;
+      if (server.type === "remote") {
+        mcps[server.name] = {
+          type: "remote",
+          url: server.url || "",
+          enabled: true
+        };
+      } else {
+        mcps[server.name] = {
+          type: "local",
+          command: server.command || ["npx", "-y", server.name],
+          enabled: true
+        };
+      }
     }
-  }
-  if (!disabledMcps.includes("websearch") && websearchConfig) {
-    mcps.websearch = createWebsearchConfig(websearchConfig);
+  } else {
+    for (const [name, config] of Object.entries(allBuiltinMcps)) {
+      if (!disabledMcps.includes(name)) {
+        mcps[name] = config;
+      }
+    }
   }
   return mcps;
 }
@@ -2481,8 +2488,25 @@ function createCouncilTool(_ctx, _config, _depthTracker) {
 // src/utils/write-agents.ts
 import fs2 from "node:fs";
 import path2 from "node:path";
+var PRIMARY_SET2 = new Set(PRIMARY_AGENT_NAMES);
+var SUBAGENT_SET2 = new Set(SUBAGENT_NAMES);
+function resolveAgentMode(name) {
+  if (name === "odin" || name === "njord")
+    return "primary";
+  if (PRIMARY_SET2.has(name))
+    return "all";
+  if (SUBAGENT_SET2.has(name))
+    return "subagent";
+  return "subagent";
+}
 function writeAgentFiles(agents, directory) {
-  const agentDir = path2.join(directory, ".opencode", "agent");
+  const agentDir = path2.join(directory, ".opencode", "agents");
+  const legacyDir = path2.join(directory, ".opencode", "agent");
+  if (fs2.existsSync(legacyDir)) {
+    try {
+      fs2.rmSync(legacyDir, { recursive: true, force: true });
+    } catch {}
+  }
   if (!fs2.existsSync(agentDir)) {
     fs2.mkdirSync(agentDir, { recursive: true });
   }
@@ -2490,9 +2514,9 @@ function writeAgentFiles(agents, directory) {
   for (const agent of agents) {
     const model = agent._modelArray?.[0]?.id ?? agent.config.model ?? "opencode/nemotron-3-super-free";
     const fallbackModels = agent._modelArray?.slice(1).map((m) => m.id).filter(Boolean);
-    const displayName = agent.displayName ?? `@${agent.name}`;
+    const displayName = agent.displayName ?? agent.name;
     const description = agent.description ?? "";
-    const mode = agent.config.mode ?? "primary";
+    const mode = resolveAgentMode(agent.name);
     const color = agent.config.color ?? undefined;
     const skills = agent.config.skills ?? [];
     const mcps = agent.config.mcps ?? [];
@@ -4045,31 +4069,55 @@ function createBackgroundNotificationHook(_ctx, _config, hookConfig) {
   const cfg = {
     enabled: true,
     extraEvents: [],
+    taskEngine: undefined,
     ...hookConfig
   };
   const watchedEvents = new Set([
     ...DEFAULT_EVENTS,
     ...cfg.extraEvents ?? []
   ]);
-  async function handleSessionIdle(_input, _output) {
+  async function handleSessionIdle(input, _output) {
     if (!cfg.enabled || !watchedEvents.has("oh-my-unified.session.idle"))
       return;
     log("[background-notification] oh-my-unified.session.idle — no active background tasks");
+    const event = input.event;
+    const props = event?.properties;
+    const taskId = props?.taskId;
+    const sessionId = props?.sessionId;
+    const elapsedMs = props?.elapsedMs ?? 0;
+    if (taskId && sessionId && cfg.taskEngine) {
+      cfg.taskEngine.onSessionIdle(taskId, sessionId, elapsedMs, _ctx);
+    }
   }
-  async function handleMessageUpdated(_input, _output) {
+  async function handleMessageUpdated(input, _output) {
     if (!cfg.enabled || !watchedEvents.has("oh-my-unified.message.updated"))
       return;
     log("[background-notification] oh-my-unified.message.updated — background agent produced output");
+    const event = input.event;
+    const props = event?.properties;
+    const taskId = props?.taskId;
+    const sessionId = props?.sessionId;
+    if (taskId && sessionId && cfg.taskEngine) {
+      cfg.taskEngine.syncSessionMessages(taskId, sessionId, _ctx).catch(() => {});
+    }
   }
   async function handleTodoUpdated(_input, _output) {
     if (!cfg.enabled || !watchedEvents.has("oh-my-unified.todo.updated"))
       return;
     log("[background-notification] oh-my-unified.todo.updated — background task updated todos");
   }
-  async function handleSessionError(_input, _output) {
+  async function handleSessionError(input, _output) {
     if (!cfg.enabled || !watchedEvents.has("oh-my-unified.session.error"))
       return;
     log("[background-notification] oh-my-unified.session.error — background session encountered error");
+    const event = input.event;
+    const props = event?.properties;
+    const taskId = props?.taskId;
+    if (taskId && cfg.taskEngine) {
+      cfg.taskEngine.getRegistry().updateStatus(taskId, "error", {
+        completedAt: Date.now()
+      });
+    }
   }
   async function handleTaskCompleted(_input, _output) {
     if (!cfg.enabled || !watchedEvents.has("oh-my-unified.task.completed"))
@@ -6850,7 +6898,7 @@ init_sqlite();
 class SecurityResearchStore {
   db;
   constructor(dbPath) {
-    this.db = new Database(dbPath);
+    this.db = new TypedDatabase(dbPath);
     this.db.run("PRAGMA journal_mode=WAL");
     this.migrate();
   }
@@ -7012,7 +7060,7 @@ class MetricsCollector {
   dailyBudget;
   costPerModel;
   constructor(dbPath = ":memory:", options) {
-    this.db = new Database(dbPath);
+    this.db = new TypedDatabase(dbPath);
     this.dailyBudget = options?.dailyBudget ?? 10;
     this.costPerModel = options?.costPerModel ?? DEFAULT_COST_PER_MODEL;
     this.db.run("PRAGMA journal_mode=WAL");
@@ -7402,7 +7450,7 @@ init_sqlite();
 class LearningEngine {
   db;
   constructor(dbPath = ":memory:") {
-    this.db = new Database(dbPath);
+    this.db = new TypedDatabase(dbPath);
     this.db.run("PRAGMA journal_mode=WAL");
     this.migrate();
   }
@@ -7652,7 +7700,7 @@ init_sqlite();
 class BenchmarkTracker {
   db;
   constructor(dbPath = ":memory:") {
-    this.db = new Database(dbPath);
+    this.db = new TypedDatabase(dbPath);
     this.db.run("PRAGMA journal_mode=WAL");
     this.migrate();
   }
@@ -8609,7 +8657,9 @@ function createUnifiedHooks(ctx, config, hookConfig, runtimeChains, features) {
   const autoCommandDetector = createAutoCommandDetectorHook(ctx, config);
   const postToolNudge = createPostToolNudgeHook(ctx, config);
   const todoContinuation = createTodoContinuationHook(ctx, config);
-  const backgroundNotification = createBackgroundNotificationHook(ctx, config);
+  const backgroundNotification = createBackgroundNotificationHook(ctx, config, {
+    taskEngine: features?.taskEngine
+  });
   const synthesized = createSynthesizedHooks(ctx, config, hookConfig);
   const integrationHub = createIntegrationHub();
   const transparencyLog = createTransparencyLog();
@@ -8671,10 +8721,14 @@ function createUnifiedHooks(ctx, config, hookConfig, runtimeChains, features) {
       await safeCall(() => modelFallback.handleEvent(input.event));
       await safeCall(synthesized["event"], input);
       const bgMap = {
-        "session.idle": "session.idle",
-        "message.updated": "message.updated",
-        "todo.updated": "todo.updated",
-        "session.error": "session.error"
+        "session.idle": "oh-my-unified.session.idle",
+        "message.updated": "oh-my-unified.message.updated",
+        "todo.updated": "oh-my-unified.todo.updated",
+        "session.error": "oh-my-unified.session.error",
+        "oh-my-unified.session.idle": "oh-my-unified.session.idle",
+        "oh-my-unified.message.updated": "oh-my-unified.message.updated",
+        "oh-my-unified.todo.updated": "oh-my-unified.todo.updated",
+        "oh-my-unified.session.error": "oh-my-unified.session.error"
       };
       const bgKey = bgMap[input.event.type];
       if (bgKey) {
@@ -9154,31 +9208,6 @@ var state2 = new Map;
 function createSubtaskState() {
   return { tasks: new Map, currentTask: undefined };
 }
-async function createSubtaskTool(_ctx, subtaskState, _depthTracker) {
-  async function subtask(params) {
-    const taskId = `task_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    subtaskState.tasks.set(taskId, { status: "in_progress" });
-    subtaskState.currentTask = taskId;
-    return { taskId, status: "started" };
-  }
-  return {
-    name: "subtask",
-    definition: {
-      name: "subtask",
-      description: "Create and manage subtasks for complex multi-step operations",
-      input: {
-        type: "object",
-        properties: {
-          task: { type: "string", description: "Description of the subtask" },
-          context: { type: "string", description: "Additional context for the subtask" }
-        },
-        required: ["task"]
-      },
-      func: subtask
-    },
-    func: subtask
-  };
-}
 function createSubtaskCommandManager(_ctx, _state) {
   return {
     name: "subtask_commands",
@@ -9196,25 +9225,6 @@ function createSubtaskCommandManager(_ctx, _state) {
         return { cleared: true };
       }
     }
-  };
-}
-async function createReadSessionTool(_client, _subtaskState) {
-  async function read_session() {
-    const tasks = [];
-    for (const [id, info] of _subtaskState.tasks) {
-      tasks.push({ id, status: info.status });
-    }
-    return { tasks };
-  }
-  return {
-    name: "read_session",
-    definition: {
-      name: "read_session",
-      description: "Read current session state including active subtasks",
-      input: { type: "object", properties: {} },
-      func: read_session
-    },
-    func: read_session
   };
 }
 
@@ -9853,8 +9863,8 @@ var DEFAULT_MCP_SERVERS = [
   { name: "loom-mcp", type: "local", command: ["npx", "-y", "@opencode-ai/loom-mcp"], enabled: true },
   { name: "openspace", type: "local", command: ["npx", "-y", "@opencode-ai/openspace-mcp"], enabled: true },
   { name: "context7", type: "local", command: ["npx", "-y", "@opencode-ai/context7-mcp"], enabled: true },
-  { name: "exa", type: "local", command: ["npx", "-y", "@opencode-ai/exa-mcp"], enabled: true },
-  { name: "gh_grep", type: "local", command: ["npx", "-y", "@opencode-ai/gh-grep-mcp"], enabled: true },
+  { name: "exa", type: "remote", url: "https://mcp.exa.ai/mcp", enabled: true },
+  { name: "gh_grep", type: "remote", url: "https://mcp.grep.app", enabled: true },
   { name: "deepwiki", type: "local", command: ["npx", "-y", "@opencode-ai/deepwiki-mcp"], enabled: true },
   { name: "sequential-thinking", type: "local", command: ["npx", "-y", "@opencode-ai/sequential-thinking-mcp"], enabled: true },
   { name: "agent-browser", type: "local", command: ["npx", "-y", "@opencode-ai/agent-browser-mcp"], enabled: true }
@@ -9972,11 +9982,11 @@ class SystemObserver {
       return;
     const ms = intervalMs ?? DEFAULT_CHECK_INTERVAL_MS;
     this.runHealthCheck().catch((err) => {
-      console.error(`[SystemObserver] Initial health check failed:`, err);
+      log("[SystemObserver] Initial health check failed", { error: String(err) });
     });
     this.interval = setInterval(() => {
       this.runHealthCheck().catch((err) => {
-        console.error(`[SystemObserver] Periodic health check failed:`, err);
+        log("[SystemObserver] Periodic health check failed", { error: String(err) });
       });
     }, ms);
   }
@@ -9997,7 +10007,12 @@ class SystemObserver {
         const prev = this.health.get(name);
         if (prev && prev.status !== health.status) {
           this.events.onStatusChange?.(name, prev.status, health.status);
-          console.warn(`[SystemObserver] ${name}: ${prev.status} → ${health.status}` + (health.lastError ? ` (${health.lastError})` : ""));
+          log("[SystemObserver] component status changed", {
+            component: name,
+            from: prev.status,
+            to: health.status,
+            error: health.lastError
+          });
         }
         this.health.set(name, health);
         results.push(health);
@@ -10055,7 +10070,15 @@ class SystemObserver {
     for (const [agent, data] of this.agentActivity) {
       activitySnapshot[agent] = { ...data };
     }
-    console.info(`[SystemObserver] Health check — ${overall.toUpperCase()}` + `  (${results.filter((r) => r.status === "healthy").length}/${results.length} healthy)` + `  tasks:${this.runningTasks}  mcps:${this.connectedMcps}` + `  ⚠${this.warnings.length}  ✗${this.errors.length}`);
+    log("[SystemObserver] health check complete", {
+      overall,
+      healthy: results.filter((r) => r.status === "healthy").length,
+      total: results.length,
+      tasks: this.runningTasks,
+      mcps: this.connectedMcps,
+      warnings: this.warnings.length,
+      errors: this.errors.length
+    });
     const report = {
       timestamp: Date.now(),
       overall,
@@ -10199,6 +10222,590 @@ class SystemObserver {
     return new Map(this.agentActivity);
   }
 }
+// src/persistence/task-registry.ts
+init_sqlite();
+function rowToTask(row) {
+  return {
+    id: row.id,
+    sessionId: row.session_id,
+    parentSessionId: row.parent_session_id ?? undefined,
+    agent: row.agent,
+    status: row.status,
+    description: row.description,
+    category: row.category ?? undefined,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    completedAt: row.completed_at ?? undefined,
+    outputCache: row.output_cache ?? undefined,
+    metadata: row.metadata ?? undefined
+  };
+}
+
+class TaskRegistry {
+  db;
+  constructor(dbPath) {
+    this.db = new TypedDatabase(dbPath);
+    this.db.run("PRAGMA journal_mode=WAL");
+    this.migrate();
+  }
+  migrate() {
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS tasks (
+        id TEXT PRIMARY KEY,
+        session_id TEXT NOT NULL,
+        parent_session_id TEXT,
+        agent TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending',
+        description TEXT,
+        category TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        completed_at INTEGER,
+        output_cache TEXT,
+        metadata TEXT
+      )
+    `);
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS task_messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        task_id TEXT NOT NULL REFERENCES tasks(id),
+        role TEXT NOT NULL,
+        content TEXT NOT NULL,
+        timestamp INTEGER NOT NULL
+      )
+    `);
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS task_dependencies (
+        task_id TEXT NOT NULL REFERENCES tasks(id),
+        depends_on_id TEXT NOT NULL REFERENCES tasks(id),
+        PRIMARY KEY (task_id, depends_on_id)
+      )
+    `);
+  }
+  close() {
+    this.db.close();
+  }
+  createTask(record) {
+    const now = Date.now();
+    const task = {
+      ...record,
+      createdAt: now,
+      updatedAt: now
+    };
+    this.db.prepare(`INSERT INTO tasks (id, session_id, parent_session_id, agent, status, description, category, created_at, updated_at, completed_at, output_cache, metadata)
+         VALUES ($id, $sessionId, $parentSessionId, $agent, $status, $description, $category, $createdAt, $updatedAt, $completedAt, $outputCache, $metadata)`).run({
+      $id: task.id,
+      $sessionId: task.sessionId,
+      $parentSessionId: task.parentSessionId ?? null,
+      $agent: task.agent,
+      $status: task.status,
+      $description: task.description,
+      $category: task.category ?? null,
+      $createdAt: task.createdAt,
+      $updatedAt: task.updatedAt,
+      $completedAt: task.completedAt ?? null,
+      $outputCache: task.outputCache ?? null,
+      $metadata: task.metadata ?? null
+    });
+    return task;
+  }
+  getTask(id) {
+    const row = this.db.prepare("SELECT * FROM tasks WHERE id = $id").get({ $id: id });
+    return row ? rowToTask(row) : null;
+  }
+  getTaskBySession(sessionId) {
+    const row = this.db.prepare("SELECT * FROM tasks WHERE session_id = $sessionId LIMIT 1").get({ $sessionId: sessionId });
+    return row ? rowToTask(row) : null;
+  }
+  updateStatus(id, status, extra) {
+    const now = Date.now();
+    const completedAt = status === "completed" || status === "error" ? now : null;
+    const updates = ["updated_at = $updatedAt"];
+    const params = { $updatedAt: now, $id: id };
+    updates.push("status = $status");
+    params.$status = status;
+    if (completedAt !== null) {
+      updates.push("completed_at = $completedAt");
+      params.$completedAt = completedAt;
+    }
+    if (extra?.outputCache !== undefined) {
+      updates.push("output_cache = $outputCache");
+      params.$outputCache = extra.outputCache;
+    }
+    if (extra?.metadata !== undefined) {
+      updates.push("metadata = $metadata");
+      params.$metadata = extra.metadata;
+    }
+    if (extra?.description !== undefined) {
+      updates.push("description = $description");
+      params.$description = extra.description;
+    }
+    if (extra?.category !== undefined) {
+      updates.push("category = $category");
+      params.$category = extra.category;
+    }
+    if (extra?.parentSessionId !== undefined) {
+      updates.push("parent_session_id = $parentSessionId");
+      params.$parentSessionId = extra.parentSessionId;
+    }
+    this.db.prepare(`UPDATE tasks SET ${updates.join(", ")} WHERE id = $id`).run(params);
+  }
+  listTasksByParent(parentSessionId) {
+    const rows = this.db.prepare("SELECT * FROM tasks WHERE parent_session_id = $parentSessionId ORDER BY created_at ASC").all({ $parentSessionId: parentSessionId });
+    return rows.map(rowToTask);
+  }
+  listTasksByStatus(status) {
+    const rows = this.db.prepare("SELECT * FROM tasks WHERE status = $status ORDER BY created_at DESC").all({ $status: status });
+    return rows.map(rowToTask);
+  }
+  listRunningTasks() {
+    const rows = this.db.prepare("SELECT * FROM tasks WHERE status IN ('pending', 'running') ORDER BY created_at ASC").all();
+    return rows.map(rowToTask);
+  }
+  deleteTask(id) {
+    this.db.prepare("DELETE FROM task_messages WHERE task_id = $id").run({ $id: id });
+    this.db.prepare("DELETE FROM task_dependencies WHERE task_id = $id OR depends_on_id = $id").run({
+      $id: id
+    });
+    this.db.prepare("DELETE FROM tasks WHERE id = $id").run({ $id: id });
+  }
+  addMessage(taskId, role, content) {
+    this.db.prepare(`INSERT INTO task_messages (task_id, role, content, timestamp)
+         VALUES ($taskId, $role, $content, $timestamp)`).run({
+      $taskId: taskId,
+      $role: role,
+      $content: content,
+      $timestamp: Date.now()
+    });
+  }
+  clearMessages(taskId) {
+    this.db.prepare("DELETE FROM task_messages WHERE task_id = $taskId").run({ $taskId: taskId });
+  }
+  getMessages(taskId) {
+    const rows = this.db.prepare("SELECT id, task_id, role, content, timestamp FROM task_messages WHERE task_id = $taskId ORDER BY timestamp ASC").all({ $taskId: taskId });
+    return rows.map((row) => ({
+      id: row.id,
+      taskId: row.task_id,
+      role: row.role,
+      content: row.content,
+      timestamp: row.timestamp
+    }));
+  }
+  getStats() {
+    const row = this.db.prepare("SELECT COUNT(*) as total FROM tasks").get() ?? { total: 0 };
+    const statusRows = this.db.prepare("SELECT status, COUNT(*) as count FROM tasks GROUP BY status").all();
+    const byStatus = {};
+    for (const sr of statusRows) {
+      byStatus[sr.status] = sr.count;
+    }
+    return { total: row.total, byStatus };
+  }
+}
+// src/background/completion-detector.ts
+var MIN_IDLE_MS = 100;
+var POLL_INTERVAL_MS = 2000;
+var STABILITY_THRESHOLD = 3;
+var IDLE_COALESCE_MS = 100;
+
+class CompletionDetector {
+  callbacks;
+  pollInterval = null;
+  deferredChecks = new Map;
+  messageCountSnapshot = new Map;
+  messageCountStable = new Map;
+  idleCoalesceTimers = new Map;
+  pendingIdlePayloads = new Map;
+  constructor(callbacks) {
+    this.callbacks = callbacks;
+  }
+  onSessionIdle(taskId, sessionId, elapsedMs) {
+    const existingTimer = this.idleCoalesceTimers.get(taskId);
+    if (existingTimer) {
+      clearTimeout(existingTimer);
+    }
+    this.pendingIdlePayloads.set(taskId, { taskId, sessionId, elapsedMs });
+    const timer = setTimeout(() => {
+      this.idleCoalesceTimers.delete(taskId);
+      const payload = this.pendingIdlePayloads.get(taskId);
+      this.pendingIdlePayloads.delete(taskId);
+      if (payload) {
+        this.processIdleEvent(payload.taskId, payload.sessionId, payload.elapsedMs);
+      }
+    }, IDLE_COALESCE_MS);
+    if (typeof timer === "object" && "unref" in timer) {
+      timer.unref();
+    }
+    this.idleCoalesceTimers.set(taskId, timer);
+    return "coalesced";
+  }
+  processIdleEvent(taskId, _sessionId, elapsedMs) {
+    if (elapsedMs < MIN_IDLE_MS) {
+      const remaining = MIN_IDLE_MS - elapsedMs;
+      this.scheduleDeferredCheck(taskId, remaining);
+      return "deferred";
+    }
+    const messages = this.callbacks.getMessages(taskId);
+    const hasFinalContent = messages.some((m) => (m.role === "assistant" || m.role === "agent") && m.content && m.content.length > 0);
+    if (hasFinalContent) {
+      const finalMessages = messages.filter((m) => (m.role === "assistant" || m.role === "agent") && m.content);
+      const finalContent = finalMessages.length > 0 ? finalMessages[finalMessages.length - 1].content : undefined;
+      this.callbacks.updateStatus(taskId, "completed", {
+        outputCache: finalContent,
+        completedAt: Date.now()
+      });
+      this.cleanupDeferred(taskId);
+      return "completed";
+    }
+    this.scheduleDeferredCheck(taskId, 500);
+    return "still-running";
+  }
+  async onPollTick() {
+    const runningIds = this.callbacks.getRunningTaskIds();
+    for (const taskId of runningIds) {
+      const messages = this.callbacks.getMessages(taskId);
+      const currentCount = messages.length;
+      const prevCount = this.messageCountSnapshot.get(taskId) ?? -1;
+      const stableCount = this.messageCountStable.get(taskId) ?? 0;
+      if (currentCount === prevCount && currentCount > 0) {
+        const newStable = stableCount + 1;
+        this.messageCountStable.set(taskId, newStable);
+        if (newStable >= STABILITY_THRESHOLD) {
+          const finalContent = this.extractFinalContent(messages);
+          this.callbacks.updateStatus(taskId, "completed", {
+            outputCache: finalContent,
+            completedAt: Date.now()
+          });
+          this.cleanupPollingState(taskId);
+        }
+      } else {
+        this.messageCountSnapshot.set(taskId, currentCount);
+        this.messageCountStable.set(taskId, 0);
+      }
+    }
+    this.cleanupStalePollingState(runningIds);
+  }
+  startPolling(intervalMs = POLL_INTERVAL_MS) {
+    if (this.pollInterval)
+      return;
+    this.pollInterval = setInterval(() => {
+      this.onPollTick().catch(() => {});
+    }, intervalMs);
+  }
+  stopPolling() {
+    if (this.pollInterval) {
+      clearInterval(this.pollInterval);
+      this.pollInterval = null;
+    }
+  }
+  scheduleDeferredCheck(taskId, delayMs) {
+    this.cleanupDeferred(taskId);
+    const timer = setTimeout(() => {
+      this.deferredChecks.delete(taskId);
+      this.processIdleEvent(taskId, "", MIN_IDLE_MS + 1);
+    }, delayMs);
+    if (typeof timer === "object" && "unref" in timer) {
+      timer.unref();
+    }
+    this.deferredChecks.set(taskId, timer);
+  }
+  cleanupDeferred(taskId) {
+    const existing = this.deferredChecks.get(taskId);
+    if (existing) {
+      clearTimeout(existing);
+      this.deferredChecks.delete(taskId);
+    }
+  }
+  cleanupPollingState(taskId) {
+    this.messageCountSnapshot.delete(taskId);
+    this.messageCountStable.delete(taskId);
+  }
+  cleanupStalePollingState(runningIds) {
+    const runningSet = runningIds instanceof Set ? runningIds : new Set(runningIds);
+    for (const taskId of this.messageCountSnapshot.keys()) {
+      if (!runningSet.has(taskId)) {
+        this.cleanupPollingState(taskId);
+      }
+    }
+  }
+  extractFinalContent(messages) {
+    const finalMessages = messages.filter((m) => (m.role === "assistant" || m.role === "agent") && m.content);
+    return finalMessages.length > 0 ? finalMessages[finalMessages.length - 1].content : undefined;
+  }
+  dispose() {
+    this.stopPolling();
+    for (const [taskId] of this.deferredChecks) {
+      this.cleanupDeferred(taskId);
+    }
+    for (const [taskId] of this.idleCoalesceTimers) {
+      const timer = this.idleCoalesceTimers.get(taskId);
+      if (timer)
+        clearTimeout(timer);
+    }
+    this.idleCoalesceTimers.clear();
+    this.pendingIdlePayloads.clear();
+    this.messageCountSnapshot.clear();
+    this.messageCountStable.clear();
+  }
+}
+
+// src/background/reconstructor.ts
+class TaskReconstructor {
+  registry;
+  constructor(registry) {
+    this.registry = registry;
+  }
+  async reconstruct(taskId, sessionId, client) {
+    const recovered = await this.recoverSessionData(taskId, sessionId, client);
+    if (!recovered)
+      return null;
+    const now = Date.now();
+    const record = {
+      id: taskId,
+      sessionId,
+      agent: recovered.agentName,
+      status: recovered.status,
+      description: recovered.description,
+      category: "reconstructed",
+      completedAt: recovered.status === "completed" || recovered.status === "error" ? now : undefined,
+      outputCache: this.extractFinalContent(recovered.messages),
+      metadata: JSON.stringify({ reconstructed: true, recoveredAt: now })
+    };
+    const task = this.registry.createTask(record);
+    for (const msg of recovered.messages) {
+      this.registry.addMessage(taskId, msg.role, msg.content);
+    }
+    return task;
+  }
+  async recoverSessionData(taskId, sessionId, client) {
+    let messages = [];
+    let status = "completed";
+    let agentName = "unknown";
+    let description = `Reconstructed task ${taskId}`;
+    if (client.session?.read) {
+      try {
+        const readResult = await client.session.read(sessionId);
+        if (readResult) {
+          if (readResult.messages && Array.isArray(readResult.messages)) {
+            messages = readResult.messages.map((m) => ({
+              role: m.role ?? "unknown",
+              content: m.content ?? "",
+              timestamp: m.ts ?? m.timestamp ?? Date.now()
+            }));
+          }
+          if (readResult.status) {
+            status = this.mapStatus(readResult.status);
+          }
+          if (messages.length > 0) {
+            const firstMsg = messages[0];
+            agentName = firstMsg.role === "user" ? "orchestrator" : firstMsg.role;
+            description = messages.filter((m) => m.role === "user").map((m) => m.content.slice(0, 100)).join("; ") || `Reconstructed from session ${sessionId}`;
+          }
+          return { messages, status, agentName, description };
+        }
+      } catch {}
+    }
+    if (client.session?.info) {
+      try {
+        const infoResult = await client.session.info(sessionId);
+        if (infoResult) {
+          return {
+            messages: [],
+            status: infoResult.status ?? "completed",
+            agentName,
+            description: `Reconstructed from session info: ${infoResult.status ?? "completed"}`
+          };
+        }
+      } catch {}
+    }
+    return null;
+  }
+  mapStatus(sessionStatus) {
+    switch (sessionStatus) {
+      case "completed":
+      case "finished":
+      case "done":
+        return "completed";
+      case "error":
+      case "failed":
+      case "errored":
+        return "error";
+      case "running":
+      case "active":
+      case "in_progress":
+        return "running";
+      case "cancelled":
+      case "canceled":
+        return "cancelled";
+      default:
+        return "completed";
+    }
+  }
+  extractFinalContent(messages) {
+    const finalMessages = messages.filter((m) => (m.role === "assistant" || m.role === "agent") && m.content);
+    return finalMessages.length > 0 ? finalMessages[finalMessages.length - 1].content : undefined;
+  }
+}
+
+// src/background/persistent-task-engine.ts
+function generateTaskId2() {
+  const suffix = Math.random().toString(36).slice(2, 8);
+  return `bg_${Date.now()}_${suffix}`;
+}
+function generateSessionId2() {
+  const suffix = Math.random().toString(36).slice(2, 8);
+  return `ses_${Date.now()}_${suffix}`;
+}
+var DEFAULTS = {
+  taskRetentionDays: 7,
+  maxConcurrentTasks: 10,
+  defaultTimeoutMs: 300000,
+  healthCheckIntervalMs: 30000
+};
+
+class PersistentTaskEngine {
+  registry;
+  detector;
+  reconstructor;
+  config;
+  _shutdown = false;
+  constructor(config) {
+    this.config = {
+      dbPath: config.dbPath,
+      taskRetentionDays: config.taskRetentionDays ?? DEFAULTS.taskRetentionDays,
+      maxConcurrentTasks: config.maxConcurrentTasks ?? DEFAULTS.maxConcurrentTasks,
+      defaultTimeoutMs: config.defaultTimeoutMs ?? DEFAULTS.defaultTimeoutMs,
+      healthCheckIntervalMs: config.healthCheckIntervalMs ?? DEFAULTS.healthCheckIntervalMs
+    };
+    this.registry = new TaskRegistry(this.config.dbPath);
+    this.reconstructor = new TaskReconstructor(this.registry);
+    const callbacks = {
+      getTask: (id) => this.registry.getTask(id),
+      updateStatus: (id, status, extra) => this.registry.updateStatus(id, status, extra),
+      getMessages: (taskId) => this.registry.getMessages(taskId),
+      getRunningTaskIds: () => this.registry.listRunningTasks().map((t) => t.id)
+    };
+    this.detector = new CompletionDetector(callbacks);
+    this.detector.startPolling(this.config.healthCheckIntervalMs);
+  }
+  async launchTask(input, _client) {
+    if (this._shutdown)
+      throw new Error("Engine is shut down");
+    const running = this.registry.listRunningTasks();
+    if (running.length >= (this.config.maxConcurrentTasks ?? DEFAULTS.maxConcurrentTasks)) {
+      throw new Error(`Max concurrent tasks reached (${this.config.maxConcurrentTasks}). ` + `Cancel a running task before launching a new one.`);
+    }
+    const taskId = generateTaskId2();
+    const sessionId = generateSessionId2();
+    this.registry.createTask({
+      id: taskId,
+      sessionId,
+      parentSessionId: input.parentSessionId,
+      agent: input.agent,
+      status: "pending",
+      description: input.description,
+      category: input.category,
+      metadata: JSON.stringify({
+        timeoutMs: input.timeoutMs ?? this.config.defaultTimeoutMs
+      })
+    });
+    this.registry.updateStatus(taskId, "running");
+    return { taskId, sessionId };
+  }
+  async getTaskOutput(taskId, sessionId, client) {
+    if (this._shutdown)
+      return null;
+    const task = this.registry.getTask(taskId);
+    if (task) {
+      const messages = this.registry.getMessages(taskId);
+      return {
+        task,
+        messages,
+        finalContent: task.outputCache
+      };
+    }
+    try {
+      const reconstructed = await this.reconstructor.reconstruct(taskId, sessionId, client);
+      if (reconstructed) {
+        const messages = this.registry.getMessages(taskId);
+        return {
+          task: reconstructed,
+          messages,
+          finalContent: reconstructed.outputCache,
+          reconstructed: true
+        };
+      }
+    } catch {}
+    return null;
+  }
+  async cancelTask(taskId, _client) {
+    if (this._shutdown)
+      return;
+    const task = this.registry.getTask(taskId);
+    if (!task)
+      return;
+    if (task.status === "completed" || task.status === "cancelled" || task.status === "error") {
+      return;
+    }
+    this.registry.updateStatus(taskId, "cancelled", {
+      completedAt: Date.now()
+    });
+  }
+  listRunningTasks() {
+    if (this._shutdown)
+      return [];
+    return this.registry.listRunningTasks();
+  }
+  getRegistry() {
+    return this.registry;
+  }
+  async syncSessionMessages(taskId, sessionId, client) {
+    if (this._shutdown)
+      return;
+    try {
+      const data = await client.session?.read?.(sessionId);
+      if (data && Array.isArray(data.messages)) {
+        this.registry.clearMessages(taskId);
+        for (const msg of data.messages) {
+          this.registry.addMessage(taskId, msg.role, msg.content);
+        }
+        const assistantMsgs = data.messages.filter((m) => m.role === "assistant");
+        if (assistantMsgs.length > 0) {
+          const finalMsg = assistantMsgs[assistantMsgs.length - 1];
+          this.registry.updateStatus(taskId, "running", {
+            outputCache: finalMsg.content
+          });
+        }
+      }
+    } catch (err) {}
+  }
+  getStats() {
+    if (this._shutdown)
+      return { total: 0, byStatus: {}, running: 0 };
+    const stats = this.registry.getStats();
+    const running = this.registry.listRunningTasks().length;
+    return {
+      total: stats.total,
+      byStatus: stats.byStatus,
+      running
+    };
+  }
+  onSessionIdle(taskId, sessionId, elapsedMs, client) {
+    if (this._shutdown)
+      return "still-running";
+    if (client) {
+      this.syncSessionMessages(taskId, sessionId, client).catch(() => {});
+    }
+    return this.detector.onSessionIdle(taskId, sessionId, elapsedMs);
+  }
+  shutdown() {
+    if (this._shutdown)
+      return;
+    this._shutdown = true;
+    this.detector.dispose();
+    this.registry.close();
+  }
+}
+
 // src/features/agent-selector/index.ts
 var TASK_KEYWORDS = {
   planning: ["odin", "mimir", "frigg"],
@@ -10995,8 +11602,8 @@ class DiagnosticsChecker {
   async checkSQLite() {
     const start = Date.now();
     try {
-      const { Database: Database2 } = await Promise.resolve().then(() => (init_sqlite(), exports_sqlite));
-      const db = new Database2(":memory:");
+      const { Database } = await Promise.resolve().then(() => (init_sqlite(), exports_sqlite));
+      const db = new Database(":memory:");
       db.run("CREATE TABLE test (id INTEGER PRIMARY KEY)");
       db.run("INSERT INTO test (id) VALUES (1)");
       const row = db.prepare("SELECT COUNT(*) as count FROM test").get();
@@ -11186,8 +11793,8 @@ class DiagnosticsChecker {
   async checkLearningEngine() {
     const start = Date.now();
     try {
-      const { Database: Database2 } = await Promise.resolve().then(() => (init_sqlite(), exports_sqlite));
-      const db = new Database2(":memory:");
+      const { Database } = await Promise.resolve().then(() => (init_sqlite(), exports_sqlite));
+      const db = new Database(":memory:");
       db.close();
       return {
         name: "Learning Engine",
@@ -11763,7 +12370,9 @@ var OhMyUnified = async (ctx) => {
   let autoSlashCommandHook;
   let unifiedHooks;
   let toolCount = 0;
+  let catalog;
   let systemObserver;
+  let taskEngine;
   let agentSelector;
   let interviewEngine;
   let skillMCPManager;
@@ -11784,11 +12393,11 @@ var OhMyUnified = async (ctx) => {
     config = loadPluginConfig(ctx.directory);
     disabledAgents = getDisabledAgents(config);
     rewriteDisplayNameMentions = createDisplayNameMentionRewriter(config);
-    const catalog = new McpSkillCatalog;
+    catalog = new McpSkillCatalog;
     const enricher = new AgentContextEnricher(catalog);
-    const discoveredMcps = discoverUserMcps();
-    const mergedMcpServers = mergeMcpConfigs(discoveredMcps, DEFAULT_MCP_SERVERS);
-    mcps = createBuiltinMcps(config.disabled_mcps, config.websearch, mergedMcpServers);
+    const discovered = discoverUserMcps();
+    const mergedMcpServers = mergeMcpConfigs(discovered, DEFAULT_MCP_SERVERS);
+    mcps = createBuiltinMcps(config.disabled_mcps, mergedMcpServers);
     agentDefs = createAgents(config, catalog);
     try {
       const written = writeAgentFiles(agentDefs, ctx.directory);
@@ -11844,10 +12453,24 @@ var OhMyUnified = async (ctx) => {
     omPlanHook = createOmPlanHook(ctx, config, { transparencyLog });
     omAuditHook = createOmAuditHook(ctx, config, { transparencyLog });
     autoSlashCommandHook = createAutoSlashCommandHook(ctx, config);
-    pipelineCommandHandler = createPipelineCommandHandler(ctx, config, systemObserver);
-    systemObserver = new SystemObserver;
-    systemObserver.start();
+    systemObserver = new SystemObserver({
+      events: {
+        onReport: (report) => {
+          updateHealth({
+            agentCount: Object.keys(agents).length,
+            toolCount,
+            mcpCount: Object.keys(mcps).length,
+            status: report.overall === "healthy" ? "healthy" : report.overall === "degraded" ? "warning" : "critical"
+          });
+        }
+      }
+    });
     systemObserver.setConnectedMcps(Object.keys(mcps).length);
+    systemObserver.start();
+    taskEngine = new PersistentTaskEngine({
+      dbPath: config.persistence?.dbPath ?? ":memory:"
+    });
+    pipelineCommandHandler = createPipelineCommandHandler(ctx, config, systemObserver);
     agentSelector = createAgentSelector();
     for (const agentDef of agentDefs) {
       agentSelector.registerAgent({
@@ -11920,6 +12543,7 @@ var OhMyUnified = async (ctx) => {
     }, runtimeChains, {
       agentSelector,
       systemObserver,
+      taskEngine,
       interviewEngine,
       skillMcpManager: skillMCPManager,
       modelRouter,
@@ -11981,53 +12605,36 @@ var OhMyUnified = async (ctx) => {
     }
   }).catch(() => {});
   return {
-    name: "oh-my-unified",
     ...unifiedHooks,
     "chat.message": async (input, output) => {
       await autoSlashCommandHook["chat.message"](input, output);
       await unifiedHooks["chat.message"]?.(input, output);
     },
-    agent: agents,
-    tools: {
-      webfetch: {
-        name: "webfetch",
-        description: "Fetch web content from a URL",
-        input: { type: "object", properties: { url: { type: "string" } }, required: ["url"] },
-        func: webfetch2
-      },
-      ast_grep_search: {
-        name: "ast_grep_search",
-        description: "Search code with AST patterns",
-        input: { type: "object", properties: { pattern: { type: "string" } }, required: ["pattern"] },
-        func: ast_grep_search
-      },
-      ast_grep_replace: {
-        name: "ast_grep_replace",
-        description: "Replace code with AST patterns",
-        input: { type: "object", properties: { pattern: { type: "string" }, rewrite: { type: "string" } }, required: ["pattern", "rewrite"] },
-        func: ast_grep_replace
-      },
-      subtask: {
-        name: "subtask",
-        description: "Create a subtask for parallel execution",
-        input: { type: "object", properties: { prompt: { type: "string" } }, required: ["prompt"] },
-        func: createSubtaskTool(ctx, subtaskState, {}).func
-      },
-      read_session: {
-        name: "read_session",
-        description: "Read session data for a given session",
-        input: { type: "object", properties: { sessionID: { type: "string" } }, required: ["sessionID"] },
-        func: createReadSessionTool(ctx.client, subtaskState).func
-      }
-    },
-    mcp: mcps,
-    config: async (_opencodeConfig) => {},
     "command.execute.before": async (input, output) => {
+      const cmd = input.command.toLowerCase();
+      const OUR_COMMAND_SET = new Set([
+        "plan",
+        "assess",
+        "assemble",
+        "improvise",
+        "act",
+        "synthesize",
+        "health",
+        "status",
+        "diagnose",
+        "capabilities",
+        "onboarding",
+        "log",
+        "agents",
+        "om-plan",
+        "om-audit"
+      ]);
+      if (!OUR_COMMAND_SET.has(cmd))
+        return;
       await autoSlashCommandHook["command.execute.before"](input, output);
       await omPlanHook.handleCommandExecuteBefore(input, output);
       await omAuditHook.handleCommandExecuteBefore(input, output);
       await pipelineCommandHandler.handleCommand(input, output);
-      const cmd = input.command.toLowerCase();
       if (cmd === "diagnose") {
         const report = await diagnosticsChecker.runAll();
         output.parts.length = 0;
@@ -12090,6 +12697,143 @@ var OhMyUnified = async (ctx) => {
           text: transparencyLog.formatLog(entries)
         });
         return;
+      }
+    },
+    tool: {
+      webfetch: tool({
+        description: "Fetch web content from a URL",
+        args: {
+          url: tool.schema.string()
+        },
+        execute: async (args) => {
+          const res = await webfetch2(args.url);
+          return JSON.stringify(res);
+        }
+      }),
+      ast_grep_search: tool({
+        description: "Search code patterns using AST-aware grep (structural search)",
+        args: {
+          path: tool.schema.string(),
+          pattern: tool.schema.string(),
+          filePattern: tool.schema.string().optional(),
+          lang: tool.schema.string().optional(),
+          useRegexp: tool.schema.boolean().optional()
+        },
+        execute: async (args) => {
+          const res = await ast_grep_search({
+            path: args.path,
+            pattern: args.pattern,
+            filePattern: args.filePattern,
+            lang: args.lang,
+            useRegexp: args.useRegexp
+          });
+          return JSON.stringify(res);
+        }
+      }),
+      ast_grep_replace: tool({
+        description: "Replace code patterns using AST-aware rewrite (structural replace)",
+        args: {
+          path: tool.schema.string(),
+          pattern: tool.schema.string(),
+          rewrite: tool.schema.string(),
+          filePattern: tool.schema.string().optional(),
+          lang: tool.schema.string().optional(),
+          useRegexp: tool.schema.boolean().optional(),
+          dryRun: tool.schema.boolean().optional()
+        },
+        execute: async (args) => {
+          const res = await ast_grep_replace({
+            path: args.path,
+            pattern: args.pattern,
+            rewrite: args.rewrite,
+            filePattern: args.filePattern,
+            lang: args.lang,
+            useRegexp: args.useRegexp,
+            dryRun: args.dryRun
+          });
+          return JSON.stringify(res);
+        }
+      }),
+      subtask: tool({
+        description: "Create and manage subtasks for complex multi-step operations",
+        args: {
+          task: tool.schema.string(),
+          context: tool.schema.string().optional()
+        },
+        execute: async (args) => {
+          const taskId = `task_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+          subtaskState.tasks.set(taskId, { status: "in_progress" });
+          subtaskState.currentTask = taskId;
+          return JSON.stringify({ taskId, status: "started" });
+        }
+      }),
+      read_session: tool({
+        description: "Read current session state including active subtasks",
+        args: {
+          sessionID: tool.schema.string().optional()
+        },
+        execute: async () => {
+          const tasks = [];
+          for (const [id, info] of subtaskState.tasks) {
+            tasks.push({ id, status: info.status });
+          }
+          return JSON.stringify({ tasks });
+        }
+      })
+    },
+    config: async (opencodeConfig) => {
+      const agentConfigs = getAgentConfigs(config, catalog);
+      if (!opencodeConfig.agent) {
+        opencodeConfig.agent = { ...agentConfigs };
+      } else {
+        const existing = opencodeConfig.agent;
+        for (const [name, pluginAgent] of Object.entries(agentConfigs)) {
+          const existingAgent = existing[name];
+          if (existingAgent) {
+            existing[name] = { ...pluginAgent, ...existingAgent };
+          } else {
+            existing[name] = pluginAgent;
+          }
+        }
+      }
+      if (!opencodeConfig.default_agent) {
+        opencodeConfig.default_agent = "odin";
+      }
+      if (!opencodeConfig.mcp) {
+        opencodeConfig.mcp = { ...mcps };
+      } else {
+        const existingMcps = opencodeConfig.mcp;
+        for (const [name, mcpConfig] of Object.entries(mcps)) {
+          if (!existingMcps[name]) {
+            existingMcps[name] = mcpConfig;
+          }
+        }
+      }
+      const pluginCommands = {
+        plan: { template: "Run the full pipeline: assess → assemble → improvise → act. Topic: $input", description: "Run full agentic pipeline" },
+        assess: { template: "Phase 1: Conduct requirements assessment. Identify gaps, contradictions, and missing context.", description: "Phase 1: Requirements assessment" },
+        assemble: { template: "Phase 2: Deep research and architecture. Map dependencies, study documentation, deliberate on tradeoffs.", description: "Phase 2: Research & architecture" },
+        improvise: { template: "Phase 3: Critique and refine. Perform adversarial review, check quality, refine approach.", description: "Phase 3: Adversarial review" },
+        act: { template: "Phase 4: Execute the plan. Build, fix, and design with confidence ≥9.", description: "Phase 4: Execute" },
+        synthesize: { template: "Synthesize all agent results into a single report.", description: "Synthesize agent results" },
+        health: { template: "Run system health check. Report overall status, component health, warnings, and errors.", description: "System health check" },
+        status: { template: "Show pipeline status: conductor, phase, confidence, kanban tasks, and sub-sessions.", description: "Pipeline status" },
+        diagnose: { template: "Run 12 parallel system health checks.", description: "Full diagnostics" },
+        capabilities: { template: "List all plugin capabilities grouped by category.", description: "List capabilities" },
+        onboarding: { template: "Show interactive welcome menu with contextual guidance.", description: "Onboarding guide" },
+        log: { template: "Query the transparency log. $input", description: "Transparency log" },
+        agents: { template: "List all active agents with their models, roles, and status.", description: "List agents" },
+        "om-plan": { template: "Run the oh-my-unified plan mode. $input", description: "OM Plan mode" },
+        "om-audit": { template: "Run the oh-my-unified audit mode. $input", description: "OM Audit mode" }
+      };
+      if (!opencodeConfig.command) {
+        opencodeConfig.command = {};
+      }
+      const existingCmds = opencodeConfig.command;
+      for (const [name, cmdDef] of Object.entries(pluginCommands)) {
+        if (!existingCmds[name]) {
+          existingCmds[name] = cmdDef;
+        }
       }
     }
   };

@@ -1,0 +1,1 @@
+{"version":3,"file":"websearch.d.ts","sourceRoot":"","sources":["../../src/mcp/websearch.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAE,SAAS,EAAE,MAAM,SAAS,CAAC;AAEzC,MAAM,WAAW,eAAe;IAC9B,QAAQ,EAAE,KAAK,GAAG,QAAQ,CAAC;IAC3B,MAAM,CAAC,EAAE,MAAM,CAAC;CACjB;AAED,wBAAgB,qBAAqB,CACnC,MAAM,CAAC,EAAE,eAAe,GACvB,SAAS,CAoBX;AAED,eAAO,MAAM,SAAS,EAAE,SAAmC,CAAC"}

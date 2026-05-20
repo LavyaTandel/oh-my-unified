@@ -1,6 +1,7 @@
 import type { PluginInput } from '@opencode-ai/plugin';
 import type { PluginConfig } from '../config';
 import { log } from '../utils/logger';
+import type { PersistentTaskEngine } from '../background/persistent-task-engine';
 
 /**
  * Configuration for background notification routing.
@@ -10,6 +11,8 @@ export interface BackgroundNotificationConfig {
   enabled?: boolean;
   /** Additional event types to listen for */
   extraEvents?: string[];
+  /** Reference to the PersistentTaskEngine */
+  taskEngine?: PersistentTaskEngine;
 }
 
 const DEFAULT_EVENTS = [
@@ -37,6 +40,7 @@ export function createBackgroundNotificationHook(
   const cfg: Required<BackgroundNotificationConfig> = {
     enabled: true,
     extraEvents: [],
+    taskEngine: undefined as any,
     ...hookConfig,
   };
 
@@ -50,22 +54,41 @@ export function createBackgroundNotificationHook(
    * (no active task or user interaction for a period).
    */
   async function handleSessionIdle(
-    _input: Record<string, unknown>,
+    input: Record<string, unknown>,
     _output: Record<string, unknown>,
   ): Promise<void> {
     if (!cfg.enabled || !watchedEvents.has('oh-my-unified.session.idle')) return;
     log('[background-notification] oh-my-unified.session.idle — no active background tasks');
+
+    const event = input.event as Record<string, any> | undefined;
+    const props = event?.properties as Record<string, any> | undefined;
+    const taskId = props?.taskId as string | undefined;
+    const sessionId = props?.sessionId as string | undefined;
+    const elapsedMs = (props?.elapsedMs as number) ?? 0;
+
+    if (taskId && sessionId && cfg.taskEngine) {
+      cfg.taskEngine.onSessionIdle(taskId, sessionId, elapsedMs, _ctx as any);
+    }
   }
 
   /**
    * message.updated — fires when a background agent produces a new message.
    */
   async function handleMessageUpdated(
-    _input: Record<string, unknown>,
+    input: Record<string, unknown>,
     _output: Record<string, unknown>,
   ): Promise<void> {
     if (!cfg.enabled || !watchedEvents.has('oh-my-unified.message.updated')) return;
     log('[background-notification] oh-my-unified.message.updated — background agent produced output');
+
+    const event = input.event as Record<string, any> | undefined;
+    const props = event?.properties as Record<string, any> | undefined;
+    const taskId = props?.taskId as string | undefined;
+    const sessionId = props?.sessionId as string | undefined;
+
+    if (taskId && sessionId && cfg.taskEngine) {
+      cfg.taskEngine.syncSessionMessages(taskId, sessionId, _ctx as any).catch(() => {});
+    }
   }
 
   /**
@@ -83,11 +106,21 @@ export function createBackgroundNotificationHook(
    * session.error — fires when a background session encounters an error.
    */
   async function handleSessionError(
-    _input: Record<string, unknown>,
+    input: Record<string, unknown>,
     _output: Record<string, unknown>,
   ): Promise<void> {
     if (!cfg.enabled || !watchedEvents.has('oh-my-unified.session.error')) return;
     log('[background-notification] oh-my-unified.session.error — background session encountered error');
+
+    const event = input.event as Record<string, any> | undefined;
+    const props = event?.properties as Record<string, any> | undefined;
+    const taskId = props?.taskId as string | undefined;
+
+    if (taskId && cfg.taskEngine) {
+      cfg.taskEngine.getRegistry().updateStatus(taskId, 'error', {
+        completedAt: Date.now(),
+      });
+    }
   }
 
   /**

@@ -1,4 +1,5 @@
 import type { Plugin } from '@opencode-ai/plugin';
+import { tool } from '@opencode-ai/plugin/tool';
 import { createAgents, getAgentConfigs, getDisabledAgents } from './agents';
 import { buildOrchestratorPrompt } from './agents/orchestrator';
 import { loadPluginConfig } from './config';
@@ -35,6 +36,7 @@ import { AgentContextEnricher } from './features/tool-use-enforcer/agent-context
 import { discoverUserMcps, mergeMcpConfigs } from './features/mcp-discovery';
 import { DEFAULT_MCP_SERVERS } from './mcp-bus';
 import { SystemObserver } from './features/system-observer';
+import { PersistentTaskEngine } from './background/persistent-task-engine';
 import { createAgentSelector } from './features/agent-selector';
 import { InterviewEngine } from './interview/server';
 import { startTui, updateHealth, setSessionId } from './tui';
@@ -108,9 +110,11 @@ const OhMyUnified: Plugin = async (ctx) => {
   let autoSlashCommandHook: ReturnType<typeof createAutoSlashCommandHook>;
   let unifiedHooks: ReturnType<typeof createUnifiedHooks>;
   let toolCount = 0;
+  let catalog: McpSkillCatalog;
 
   // Phase A wiring: feature module instances
   let systemObserver: SystemObserver;
+  let taskEngine: PersistentTaskEngine;
   let agentSelector: ReturnType<typeof createAgentSelector>;
   let interviewEngine: InterviewEngine;
   let skillMCPManager: SkillMcpManager;
@@ -135,15 +139,15 @@ const OhMyUnified: Plugin = async (ctx) => {
     rewriteDisplayNameMentions = createDisplayNameMentionRewriter(config);
 
     // Build dynamic MCP/skill catalog from user's actual install
-    const catalog = new McpSkillCatalog()
-    const enricher = new AgentContextEnricher(catalog)
+    catalog = new McpSkillCatalog();
+    const enricher = new AgentContextEnricher(catalog);
 
     // Discover and merge user's MCPs with defaults
-    const discoveredMcps = discoverUserMcps()
-    const mergedMcpServers = mergeMcpConfigs(discoveredMcps, DEFAULT_MCP_SERVERS)
+    const discovered = discoverUserMcps();
+    const mergedMcpServers = mergeMcpConfigs(discovered, DEFAULT_MCP_SERVERS);
 
-    // Built-in MCPs — wired with discovered/merged configs
-    mcps = createBuiltinMcps(config.disabled_mcps, config.websearch, mergedMcpServers)
+    // Built-in MCPs — now uses correct SDK local MCP format internally
+    mcps = createBuiltinMcps(config.disabled_mcps, mergedMcpServers);
 
     // Enrich agent definitions with discovered skills
     agentDefs = createAgents(config, catalog)
@@ -226,15 +230,32 @@ const OhMyUnified: Plugin = async (ctx) => {
     // Auto-slash-command hook — detects /command in chat.message, replaces with template
     autoSlashCommandHook = createAutoSlashCommandHook(ctx, config);
 
-    // Pipeline command handler for /plan, /assess, /assemble, /improvise, /act, /synthesize, /health, /status
-    pipelineCommandHandler = createPipelineCommandHandler(ctx, config, systemObserver!);
-
     // ── Phase A: Wire feature modules ──────────────────────────────────
 
-    // System Observer — start health monitoring
-    systemObserver = new SystemObserver();
-    systemObserver.start();
+    // System Observer — start health monitoring with reactive TUI updates
+    systemObserver = new SystemObserver({
+      events: {
+        onReport: (report) => {
+          // Update TUI health reactively whenever a new report is generated
+          updateHealth({
+            agentCount: Object.keys(agents).length,
+            toolCount,
+            mcpCount: Object.keys(mcps).length,
+            status: report.overall === 'healthy' ? 'healthy' : report.overall === 'degraded' ? 'warning' : 'critical',
+          })
+        },
+      },
+    });
     systemObserver.setConnectedMcps(Object.keys(mcps).length);
+    systemObserver.start();
+
+    // Background Task Engine — Persistent sub-agent sessions
+    taskEngine = new PersistentTaskEngine({
+      dbPath: config.persistence?.dbPath ?? ':memory:',
+    });
+
+    // Pipeline command handler for /plan, /assess, /assemble, /improvise, /act, /synthesize, /health, /status
+    pipelineCommandHandler = createPipelineCommandHandler(ctx, config, systemObserver);
 
     // Agent Selector — enriched metadata for all agents
     agentSelector = createAgentSelector();
@@ -340,6 +361,7 @@ const OhMyUnified: Plugin = async (ctx) => {
     }, runtimeChains, {
       agentSelector,
       systemObserver,
+      taskEngine,
       interviewEngine,
       skillMcpManager: skillMCPManager,
       modelRouter,
@@ -429,15 +451,12 @@ const OhMyUnified: Plugin = async (ctx) => {
   }).catch(() => {});
 
 return {
-    name: 'oh-my-unified',
-
     // Spread unified hooks — delegation layer maps standard OpenCode hook names
     // to our internal sub-hooks (event, tool.execute.before, tool.execute.after,
-    // chat.message, etc.)
+    // chat.params, etc.)
     ...unifiedHooks,
 
-    // Auto-slash-command hook — wire into chat.message and command.execute.before
-    // This detects /command in user text and replaces with template
+    // Override chat.message — add auto-slash-command detection on top of unified hooks
     'chat.message': async (
       input: { sessionID: string; agent?: string; model?: { providerID: string; modelID: string }; messageID?: string },
       output: { message: unknown; parts: Array<{ type: string; text?: string }> },
@@ -449,51 +468,22 @@ return {
       await (unifiedHooks as any)['chat.message']?.(input, output);
     },
 
-    agent: agents,
-
-    tools: {
-      webfetch: {
-        name: 'webfetch',
-        description: 'Fetch web content from a URL',
-        input: { type: 'object', properties: { url: { type: 'string' } }, required: ['url'] },
-        func: webfetch,
-      },
-      ast_grep_search: {
-        name: 'ast_grep_search',
-        description: 'Search code with AST patterns',
-        input: { type: 'object', properties: { pattern: { type: 'string' } }, required: ['pattern'] },
-        func: ast_grep_search,
-      },
-      ast_grep_replace: {
-        name: 'ast_grep_replace',
-        description: 'Replace code with AST patterns',
-        input: { type: 'object', properties: { pattern: { type: 'string' }, rewrite: { type: 'string' } }, required: ['pattern', 'rewrite'] },
-        func: ast_grep_replace,
-      },
-      subtask: {
-        name: 'subtask',
-        description: 'Create a subtask for parallel execution',
-        input: { type: 'object', properties: { prompt: { type: 'string' } }, required: ['prompt'] },
-        func: (createSubtaskTool(ctx, subtaskState, {} as any) as any).func,
-      },
-      read_session: {
-        name: 'read_session',
-        description: 'Read session data for a given session',
-        input: { type: 'object', properties: { sessionID: { type: 'string' } }, required: ['sessionID'] },
-        func: (createReadSessionTool(ctx.client, subtaskState) as any).func,
-      },
-    },
-
-    mcp: mcps,
-
-    config: async (_opencodeConfig: Record<string, unknown>): Promise<void> => {
-      // Default agent is set via plugin registration
-    },
-
+    // Override command.execute.before — add early return guard for foreign commands
     'command.execute.before': async (
       input: { command: string; sessionID: string; arguments: string },
       output: { parts: Array<{ type: string; text?: string }> },
     ): Promise<void> => {
+      const cmd = input.command.toLowerCase();
+
+      // EARLY RETURN: Only handle OUR commands — never touch foreign commands
+      const OUR_COMMAND_SET = new Set([
+        'plan', 'assess', 'assemble', 'improvise', 'act',
+        'synthesize', 'health', 'status', 'diagnose',
+        'capabilities', 'onboarding', 'log', 'agents',
+        'om-plan', 'om-audit',
+      ]);
+      if (!OUR_COMMAND_SET.has(cmd)) return;
+
       // Auto-slash-command fallback — handle our commands when OpenCode processes them natively
       await autoSlashCommandHook['command.execute.before'](input, output);
 
@@ -504,9 +494,7 @@ return {
       // Pipeline commands — only handle OUR commands
       await pipelineCommandHandler.handleCommand(input, output);
 
-      // Trust & Discovery commands — ONLY handle ours, don't hijack others
-      const cmd = input.command.toLowerCase();
-
+      // Trust & Discovery commands
       if (cmd === 'diagnose') {
         const report = await diagnosticsChecker.runAll();
         output.parts.length = 0;
@@ -574,8 +562,152 @@ return {
         });
         return;
       }
+    },
 
-      // Don't hijack other plugins' commands — return without modifying output
+    tool: {
+      webfetch: tool({
+        description: 'Fetch web content from a URL',
+        args: {
+          url: tool.schema.string(),
+        },
+        execute: async (args) => {
+          const res = await webfetch(args.url);
+          return JSON.stringify(res);
+        },
+      }),
+      ast_grep_search: tool({
+        description: 'Search code patterns using AST-aware grep (structural search)',
+        args: {
+          path: tool.schema.string(),
+          pattern: tool.schema.string(),
+          filePattern: tool.schema.string().optional(),
+          lang: tool.schema.string().optional(),
+          useRegexp: tool.schema.boolean().optional(),
+        },
+        execute: async (args) => {
+          const res = await ast_grep_search({
+            path: args.path,
+            pattern: args.pattern,
+            filePattern: args.filePattern,
+            lang: args.lang,
+            useRegexp: args.useRegexp,
+          });
+          return JSON.stringify(res);
+        },
+      }),
+      ast_grep_replace: tool({
+        description: 'Replace code patterns using AST-aware rewrite (structural replace)',
+        args: {
+          path: tool.schema.string(),
+          pattern: tool.schema.string(),
+          rewrite: tool.schema.string(),
+          filePattern: tool.schema.string().optional(),
+          lang: tool.schema.string().optional(),
+          useRegexp: tool.schema.boolean().optional(),
+          dryRun: tool.schema.boolean().optional(),
+        },
+        execute: async (args) => {
+          const res = await ast_grep_replace({
+            path: args.path,
+            pattern: args.pattern,
+            rewrite: args.rewrite,
+            filePattern: args.filePattern,
+            lang: args.lang,
+            useRegexp: args.useRegexp,
+            dryRun: args.dryRun,
+          });
+          return JSON.stringify(res);
+        },
+      }),
+      subtask: tool({
+        description: 'Create and manage subtasks for complex multi-step operations',
+        args: {
+          task: tool.schema.string(),
+          context: tool.schema.string().optional(),
+        },
+        execute: async (args) => {
+          const taskId = `task_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+          subtaskState.tasks.set(taskId, { status: 'in_progress' });
+          subtaskState.currentTask = taskId;
+          return JSON.stringify({ taskId, status: 'started' });
+        },
+      }),
+      read_session: tool({
+        description: 'Read current session state including active subtasks',
+        args: {
+          sessionID: tool.schema.string().optional(),
+        },
+        execute: async () => {
+          const tasks: Array<{ id: string; status: string }> = [];
+          for (const [id, info] of subtaskState.tasks) {
+            tasks.push({ id, status: info.status });
+          }
+          return JSON.stringify({ tasks });
+        },
+      }),
+    },
+
+    config: async (opencodeConfig: Record<string, unknown>): Promise<void> => {
+      // ── 1. Inject agents ─────────────────────────────────────────────────
+      const agentConfigs = getAgentConfigs(config, catalog);
+      if (!opencodeConfig.agent) {
+        opencodeConfig.agent = { ...agentConfigs };
+      } else {
+        const existing = opencodeConfig.agent as Record<string, unknown>;
+        for (const [name, pluginAgent] of Object.entries(agentConfigs)) {
+          const existingAgent = existing[name];
+          if (existingAgent) {
+            existing[name] = { ...(pluginAgent as object), ...existingAgent };
+          } else {
+            existing[name] = pluginAgent;
+          }
+        }
+      }
+      if (!(opencodeConfig as any).default_agent) {
+        (opencodeConfig as any).default_agent = 'odin';
+      }
+
+      // ── 2. Inject MCP servers ────────────────────────────────────────────
+      if (!opencodeConfig.mcp) {
+        opencodeConfig.mcp = { ...mcps };
+      } else {
+        const existingMcps = opencodeConfig.mcp as Record<string, unknown>;
+        for (const [name, mcpConfig] of Object.entries(mcps)) {
+          // Only add if not already configured by the user
+          if (!existingMcps[name]) {
+            existingMcps[name] = mcpConfig;
+          }
+        }
+      }
+
+      // ── 3. Inject slash commands ─────────────────────────────────────────
+      const pluginCommands: Record<string, { template: string; description?: string }> = {
+        plan:         { template: 'Run the full pipeline: assess → assemble → improvise → act. Topic: $input', description: 'Run full agentic pipeline' },
+        assess:       { template: 'Phase 1: Conduct requirements assessment. Identify gaps, contradictions, and missing context.', description: 'Phase 1: Requirements assessment' },
+        assemble:     { template: 'Phase 2: Deep research and architecture. Map dependencies, study documentation, deliberate on tradeoffs.', description: 'Phase 2: Research & architecture' },
+        improvise:    { template: 'Phase 3: Critique and refine. Perform adversarial review, check quality, refine approach.', description: 'Phase 3: Adversarial review' },
+        act:          { template: 'Phase 4: Execute the plan. Build, fix, and design with confidence ≥9.', description: 'Phase 4: Execute' },
+        synthesize:   { template: 'Synthesize all agent results into a single report.', description: 'Synthesize agent results' },
+        health:       { template: 'Run system health check. Report overall status, component health, warnings, and errors.', description: 'System health check' },
+        status:       { template: 'Show pipeline status: conductor, phase, confidence, kanban tasks, and sub-sessions.', description: 'Pipeline status' },
+        diagnose:     { template: 'Run 12 parallel system health checks.', description: 'Full diagnostics' },
+        capabilities: { template: 'List all plugin capabilities grouped by category.', description: 'List capabilities' },
+        onboarding:   { template: 'Show interactive welcome menu with contextual guidance.', description: 'Onboarding guide' },
+        log:          { template: 'Query the transparency log. $input', description: 'Transparency log' },
+        agents:       { template: 'List all active agents with their models, roles, and status.', description: 'List agents' },
+        'om-plan':    { template: 'Run the oh-my-unified plan mode. $input', description: 'OM Plan mode' },
+        'om-audit':   { template: 'Run the oh-my-unified audit mode. $input', description: 'OM Audit mode' },
+      };
+
+      if (!opencodeConfig.command) {
+        opencodeConfig.command = {};
+      }
+      const existingCmds = opencodeConfig.command as Record<string, unknown>;
+      for (const [name, cmdDef] of Object.entries(pluginCommands)) {
+        if (!existingCmds[name]) {
+          existingCmds[name] = cmdDef;
+        }
+      }
     },
   };
 };

@@ -1,10 +1,22 @@
 import { createRequire } from 'node:module';
 
-let Database: any;
+export interface Statement<Row = any, Params = any> {
+  run(...params: any[]): { changes: number; lastInsertRowid: number | bigint };
+  get(...params: any[]): Row | undefined;
+  all(...params: any[]): Row[];
+}
+
+export interface DatabaseInterface {
+  run(sql: string, ...params: any[]): { changes: number; lastInsertRowid: number | bigint };
+  prepare<Row = any, Params = any>(sql: string): Statement<Row, Params>;
+  close(): void;
+}
+
+let DatabaseImpl: any;
 
 if (typeof (globalThis as any).Bun !== 'undefined') {
   const req = createRequire(import.meta.url);
-  Database = req('bun:sqlite').Database;
+  DatabaseImpl = req('bun:sqlite').Database;
 } else {
   const req = createRequire(import.meta.url);
   let usable = false;
@@ -19,7 +31,7 @@ if (typeof (globalThis as any).Bun !== 'undefined') {
     usable = true;
 
     // Wrap to add bun:sqlite-compatible db.run(sql, ...params) method
-    Database = class extends BDatabase {
+    DatabaseImpl = class extends BDatabase {
       run(sql: string, ...params: unknown[]) {
         const stmt = this.prepare(sql);
         if (params.length === 1 && typeof params[0] === 'object' && params[0] !== null) {
@@ -31,7 +43,7 @@ if (typeof (globalThis as any).Bun !== 'undefined') {
   } catch {
     // better-sqlite3 unavailable or ABI mismatch — no-op stub
     if (!usable) {
-      Database = class {
+      DatabaseImpl = class {
         constructor(_path?: string) {}
         run() { return { changes: 0, lastInsertRowid: 0 }; }
         prepare() {
@@ -47,4 +59,10 @@ if (typeof (globalThis as any).Bun !== 'undefined') {
   }
 }
 
-export { Database };
+interface DatabaseConstructor {
+  new (path?: string): DatabaseInterface;
+}
+
+const TypedDatabase = DatabaseImpl as unknown as DatabaseConstructor;
+export { TypedDatabase as Database };
+export type Database = DatabaseInterface;

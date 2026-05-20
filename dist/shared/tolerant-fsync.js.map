@@ -1,0 +1,1 @@
+{"version":3,"file":"tolerant-fsync.js","sourceRoot":"","sources":["../../src/shared/tolerant-fsync.ts"],"names":[],"mappings":"AAAA,8DAA8D;AAC9D,OAAO,EAAE,SAAS,EAAE,MAAM,SAAS,CAAA;AACnC,MAAM,UAAU,aAAa,CAAC,EAAU;IACtC,IAAI,CAAC;QAAC,SAAS,CAAC,EAAE,CAAC,CAAA;IAAC,CAAC;IAAC,MAAM,CAAC,CAAC,sBAAsB,CAAC,CAAC;AACxD,CAAC"}

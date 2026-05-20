@@ -1,0 +1,1 @@
+{"version":3,"file":"dashboard.d.ts","sourceRoot":"","sources":["../../../src/features/system-observer/dashboard.ts"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAE,cAAc,EAAE,MAAM,YAAY,CAAA;AAGhD;;;;;;;;;;GAUG;AACH,qBAAa,iBAAiB;IAChB,OAAO,CAAC,QAAQ;gBAAR,QAAQ,EAAE,cAAc;IAE5C;;;;;OAKG;IACH,MAAM,IAAI,MAAM;IA8EhB;;OAEG;IACH,KAAK,IAAI,IAAI;CAGd"}

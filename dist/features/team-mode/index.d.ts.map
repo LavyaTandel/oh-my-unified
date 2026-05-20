@@ -1,0 +1,1 @@
+{"version":3,"file":"index.d.ts","sourceRoot":"","sources":["../../../src/features/team-mode/index.ts"],"names":[],"mappings":"AAAA,YAAY,EAAE,IAAI,EAAE,UAAU,EAAE,QAAQ,EAAE,MAAM,SAAS,CAAC;AAC1D,OAAO,EAAE,YAAY,EAAE,MAAM,iBAAiB,CAAC;AAC/C,OAAO,EAAE,YAAY,EAAE,MAAM,aAAa,CAAC;AAC3C,OAAO,EAAE,gBAAgB,EAAE,MAAM,qBAAqB,CAAC;AACvD,YAAY,EAAE,gBAAgB,EAAE,sBAAsB,EAAE,MAAM,qBAAqB,CAAC"}

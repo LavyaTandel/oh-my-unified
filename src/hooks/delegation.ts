@@ -46,6 +46,7 @@ import type { IntegrationHub } from '../features/integration-hub';
 import { createTransparencyLog } from '../features/transparency-log';
 import type { TransparencyLog } from '../features/transparency-log';
 import { ConcurrencyManager } from '../background/concurrency-manager';
+import type { PersistentTaskEngine } from '../background/persistent-task-engine';
 import { ModelCapabilitiesCache, selectModelForTask } from '../features/model-capabilities/cache';
 import type { AgentSelector } from '../features/agent-selector';
 import type { SystemObserver } from '../features/system-observer';
@@ -57,6 +58,7 @@ export type { SynthesizedHooksConfig } from './synthesized-hooks';
 export interface FeatureModules {
   agentSelector?: AgentSelector;
   systemObserver?: SystemObserver;
+  taskEngine?: PersistentTaskEngine;
   interviewEngine?: InterviewEngine;
   skillMcpManager?: SkillMcpManager;
   modelRouter?: ModelRouter;
@@ -105,7 +107,9 @@ export function createUnifiedHooks(
   const autoCommandDetector = createAutoCommandDetectorHook(ctx, config);
   const postToolNudge = createPostToolNudgeHook(ctx, config);
   const todoContinuation = createTodoContinuationHook(ctx, config);
-  const backgroundNotification = createBackgroundNotificationHook(ctx, config);
+  const backgroundNotification = createBackgroundNotificationHook(ctx, config, {
+    taskEngine: features?.taskEngine,
+  });
   const synthesized = createSynthesizedHooks(ctx, config, hookConfig);
 
   const integrationHub = createIntegrationHub();
@@ -187,10 +191,14 @@ export function createUnifiedHooks(
 
       // Background notification — map OpenCode events to internal handlers
       const bgMap: Record<string, string> = {
-        'session.idle': 'session.idle',
-        'message.updated': 'message.updated',
-        'todo.updated': 'todo.updated',
-        'session.error': 'session.error',
+        'session.idle': 'oh-my-unified.session.idle',
+        'message.updated': 'oh-my-unified.message.updated',
+        'todo.updated': 'oh-my-unified.todo.updated',
+        'session.error': 'oh-my-unified.session.error',
+        'oh-my-unified.session.idle': 'oh-my-unified.session.idle',
+        'oh-my-unified.message.updated': 'oh-my-unified.message.updated',
+        'oh-my-unified.todo.updated': 'oh-my-unified.todo.updated',
+        'oh-my-unified.session.error': 'oh-my-unified.session.error',
       };
       const bgKey = bgMap[input.event.type];
       if (bgKey) {
